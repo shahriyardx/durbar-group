@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: durbar-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: durbar
+      POSTGRES_PASSWORD: durbar
+      POSTGRES_DB: durbar
+    ports:
+      - "5433:5432"
+    volumes:
+      - durbar-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U durbar -d durbar"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  durbar-pgdata:
