@@ -50,9 +50,10 @@ export default async function AdminTasksPage() {
           <h1 className="font-heading text-2xl font-bold">Tasks</h1>
           <p className="text-muted-foreground mt-1 max-w-2xl text-sm">
             A task is written once here and posted into every instructor&apos;s
-            #task channel at its start time, pinging that instructor&apos;s
-            student role. Students also see it on their dashboard while it is
-            running.
+            #task channel once its start time has passed, pinging that
+            instructor&apos;s student role. The publisher runs hourly, so a
+            mid-hour start reaches Discord on the next hour — students see it
+            on their dashboard straight away either way.
           </p>
         </div>
         <div className="flex gap-2">

@@ -63,8 +63,10 @@ export function TaskForm({
             defaultValue={task ? toLocalInputValue(task.startsAt) : ""}
           />
           <p className="text-muted-foreground text-xs">
-            Optional. Leave it empty to start immediately — the task is posted
-            to every instructor&apos;s #task channel at this moment.
+            Optional — empty means now, and a task that starts now is posted
+            immediately. Otherwise the publisher runs hourly, so a start time
+            mid-hour reaches Discord on the next hour. &ldquo;Publish now&rdquo;
+            skips the wait.
           </p>
           <FieldError message={error("startsAt")} />
         </div>

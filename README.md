@@ -69,8 +69,8 @@ Discord Developer Portal setup:
 3. Put the client id, client secret, bot token and guild id in `.env`.
 4. Drag the bot's own role above every role it will create, otherwise Discord
    refuses the role assignments.
-5. Optionally set `CRON_SECRET` and point a cron at `/api/cron/publish-tasks`
-   (see [Tasks](#tasks)).
+5. Set up the hourly QStash schedule that publishes tasks — see
+   [Scheduling](#scheduling).
 
 The first Discord account to sign in becomes `super_admin`.
 
@@ -139,16 +139,32 @@ Delivery is one row per `(task, instructor)` in `task_post`:
 - the whole run takes a Postgres advisory lock, so overlapping triggers cannot
   double-post
 
-Publishing is triggered by `GET /api/cron/publish-tasks`, authorised with
-`Authorization: Bearer $CRON_SECRET`:
+### Scheduling
 
-```
-* * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" \
-    https://your-host/api/cron/publish-tasks
+Publishing is driven by an **hourly Upstash QStash schedule** hitting
+`POST /api/cron/publish-tasks`. Create it once:
+
+```bash
+curl -X POST https://qstash.upstash.io/v2/schedules/https://your-host/api/cron/publish-tasks \
+  -H "Authorization: Bearer $QSTASH_TOKEN" \
+  -H "Upstash-Cron: 0 * * * *"
 ```
 
-Without a cron, opening `/admin/tasks` nudges the queue along after the
-response, and "Publish now" on a task posts it immediately.
+Then copy the current and next signing keys from the QStash console into
+`QSTASH_CURRENT_SIGNING_KEY` and `QSTASH_NEXT_SIGNING_KEY`. The route verifies
+the `Upstash-Signature` header against them, and the signature covers the
+destination URL — so `BETTER_AUTH_URL` must be the same public origin the
+schedule points at.
+
+`Authorization: Bearer $CRON_SECRET` is accepted as an alternative, for curl or
+a different scheduler. With neither configured the route returns 503.
+
+Because the schedule is hourly, a task whose start time falls mid-hour reaches
+Discord on the next hour. Students see it on their dashboard the moment it
+starts regardless, and two things close the gap when it matters: creating a
+task that starts immediately posts it right away, and "Publish now" on a
+scheduled task posts it on the spot. Opening `/admin/tasks` also nudges the
+queue along after the response.
 
 ## Export
 
