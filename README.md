@@ -141,23 +141,20 @@ Delivery is one row per `(task, instructor)` in `task_post`:
 
 ### Scheduling
 
-Publishing is driven by an **hourly Upstash QStash schedule** hitting
-`POST /api/cron/publish-tasks`. Create it once:
+Publishing is driven by an **hourly Upstash QStash schedule** calling
+`/api/cron?key=$CRON_SECRET`. Put a long random value in `CRON_SECRET`
+(`openssl rand -hex 32`) and create the schedule once:
 
 ```bash
-curl -X POST https://qstash.upstash.io/v2/schedules/https://your-host/api/cron/publish-tasks \
+curl -X POST "https://qstash.upstash.io/v2/schedules/https://your-host/api/cron?key=$CRON_SECRET" \
   -H "Authorization: Bearer $QSTASH_TOKEN" \
   -H "Upstash-Cron: 0 * * * *"
 ```
 
-Then copy the current and next signing keys from the QStash console into
-`QSTASH_CURRENT_SIGNING_KEY` and `QSTASH_NEXT_SIGNING_KEY`. The route verifies
-the `Upstash-Signature` header against them, and the signature covers the
-destination URL — so `BETTER_AUTH_URL` must be the same public origin the
-schedule points at.
-
-`Authorization: Bearer $CRON_SECRET` is accepted as an alternative, for curl or
-a different scheduler. With neither configured the route returns 503.
+The key is compared in constant time; a wrong or missing one is a 401, and an
+unset `CRON_SECRET` makes the route a 503 rather than an open endpoint. Because
+the secret rides in the query string it can end up in access logs and proxy
+traces — rotate it by changing the env value and re-creating the schedule.
 
 Because the schedule is hourly, a task whose start time falls mid-hour reaches
 Discord on the next hour. Students see it on their dashboard the moment it
@@ -181,7 +178,7 @@ Instructors can only export their own students — passing another
 ```
 src/
   app/            routes (see the table above), /api/export/students,
-                  /api/cron/publish-tasks
+                  /api/cron
   components/     app shell, landing sections, markdown editor, shadcn/ui
   db/schema/      auth.ts (better-auth tables), app.ts (students, instructors,
                   tasks)

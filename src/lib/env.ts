@@ -16,15 +16,12 @@ const schema = z.object({
   DISCORD_CLIENT_SECRET: z.string().min(1),
   DISCORD_BOT_TOKEN: z.string().min(1),
   DISCORD_GUILD_ID: z.string().min(1),
-  // Optional: without it the cron route refuses to run and task publishing
-  // falls back to being nudged along by admin page views.
-  // Task publishing is driven by an hourly Upstash QStash schedule, which
-  // signs every delivery with these keys. An empty value counts as "not set",
-  // so a blank line copied from .env.example does not fail startup.
-  QSTASH_CURRENT_SIGNING_KEY: optional,
-  QSTASH_NEXT_SIGNING_KEY: optional,
-  // Fallback trigger for curl or any other scheduler.
-  CRON_SECRET: z.union([z.string().min(16), z.literal("")]).optional(),
+  // The key the hourly Upstash schedule puts on /api/cron?key=… . Without it
+  // that route refuses to run and task publishing falls back to being nudged
+  // along by admin page views.
+  CRON_SECRET: optional.refine((value) => !value || value.length >= 24, {
+    message: "must be at least 24 characters — it travels in a URL",
+  }),
 });
 
 const parsed = schema.safeParse(process.env);
