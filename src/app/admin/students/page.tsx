@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { db, schema } from "@/db";
+import { summariseOthers } from "@/lib/others";
 import { requireRole } from "@/lib/rbac";
 
 const PAGE_SIZE = 50;
@@ -39,7 +40,7 @@ export default async function AdminStudentsPage({
     ? or(
         ilike(schema.importedStudent.email, `%${q}%`),
         ilike(schema.importedStudent.name, `%${q}%`),
-        ilike(schema.importedStudent.studentId, `%${q}%`),
+        ilike(schema.importedStudent.phone, `%${q}%`),
       )
     : undefined;
 
@@ -49,8 +50,8 @@ export default async function AdminStudentsPage({
         id: schema.importedStudent.id,
         email: schema.importedStudent.email,
         name: schema.importedStudent.name,
-        studentId: schema.importedStudent.studentId,
-        batch: schema.importedStudent.batch,
+        phone: schema.importedStudent.phone,
+        others: schema.importedStudent.others,
         importedAt: schema.importedStudent.importedAt,
         claimedByUserId: schema.importedStudent.claimedByUserId,
         claimedName: schema.user.name,
@@ -115,7 +116,7 @@ export default async function AdminStudentsPage({
             <Input
               name="q"
               defaultValue={q}
-              placeholder="Search email, name or ID"
+              placeholder="Search email, name or phone"
               className="sm:w-64"
             />
             <Button type="submit" variant="outline">
@@ -137,8 +138,8 @@ export default async function AdminStudentsPage({
                   <TableRow>
                     <TableHead>Email</TableHead>
                     <TableHead>Name</TableHead>
-                    <TableHead>Student ID</TableHead>
-                    <TableHead>Batch</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Other columns</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -150,9 +151,14 @@ export default async function AdminStudentsPage({
                       </TableCell>
                       <TableCell>{row.name ?? "—"}</TableCell>
                       <TableCell className="font-mono text-xs">
-                        {row.studentId ?? "—"}
+                        {row.phone ?? "—"}
                       </TableCell>
-                      <TableCell>{row.batch ?? "—"}</TableCell>
+                      <TableCell
+                        className="text-muted-foreground max-w-64 truncate text-xs"
+                        title={summariseOthers(row.others)}
+                      >
+                        {summariseOthers(row.others)}
+                      </TableCell>
                       <TableCell>
                         {row.claimedByUserId ? (
                           <Badge variant="secondary">

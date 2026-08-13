@@ -1,4 +1,4 @@
-import { count, isNotNull } from "drizzle-orm";
+import { and, count, eq, gt, gte, isNotNull, lte, ne } from "drizzle-orm";
 import Link from "next/link";
 
 import { StatCard } from "@/components/stat-card";
@@ -29,6 +29,11 @@ const SHORTCUTS = [
     body: "Paste course emails against an instructor. Unverified emails wait until they verify.",
   },
   {
+    href: "/admin/tasks",
+    title: "Set a task",
+    body: "Write it once in markdown; it posts to every instructor's #task channel at its start time.",
+  },
+  {
     href: "/admin/users",
     title: "Manage accounts",
     body: "Change roles or ban an account. Admin-level changes need a super admin.",
@@ -36,18 +41,41 @@ const SHORTCUTS = [
 ];
 
 async function counts() {
-  const [[users], [roster], [claimed], [instructors], [assignments], [pending]] =
-    await Promise.all([
-      db.select({ n: count() }).from(schema.user),
-      db.select({ n: count() }).from(schema.importedStudent),
-      db
-        .select({ n: count() })
-        .from(schema.importedStudent)
-        .where(isNotNull(schema.importedStudent.claimedByUserId)),
-      db.select({ n: count() }).from(schema.instructor),
-      db.select({ n: count() }).from(schema.studentAssignment),
-      db.select({ n: count() }).from(schema.pendingAssignment),
-    ]);
+  const now = new Date();
+  const [
+    [users],
+    [roster],
+    [claimed],
+    [instructors],
+    [assignments],
+    [pending],
+    [runningTasks],
+    [scheduledTasks],
+  ] = await Promise.all([
+    db.select({ n: count() }).from(schema.user),
+    db.select({ n: count() }).from(schema.importedStudent),
+    db
+      .select({ n: count() })
+      .from(schema.importedStudent)
+      .where(isNotNull(schema.importedStudent.claimedByUserId)),
+    db.select({ n: count() }).from(schema.instructor),
+    db.select({ n: count() }).from(schema.studentAssignment),
+    db.select({ n: count() }).from(schema.pendingAssignment),
+    db
+      .select({ n: count() })
+      .from(schema.task)
+      .where(
+        and(
+          ne(schema.task.status, "cancelled"),
+          lte(schema.task.startsAt, now),
+          gte(schema.task.dueAt, now),
+        ),
+      ),
+    db
+      .select({ n: count() })
+      .from(schema.task)
+      .where(and(eq(schema.task.status, "scheduled"), gt(schema.task.startsAt, now))),
+  ]);
 
   return {
     users: users.n,
@@ -56,6 +84,8 @@ async function counts() {
     instructors: instructors.n,
     assignments: assignments.n,
     pending: pending.n,
+    runningTasks: runningTasks.n,
+    scheduledTasks: scheduledTasks.n,
   };
 }
 
@@ -73,7 +103,7 @@ export default async function AdminPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Accounts" value={stats.users} />
         <StatCard
           label="Imported students"
@@ -85,6 +115,11 @@ export default async function AdminPage() {
           label="Assignments"
           value={stats.assignments}
           hint={`${stats.pending} awaiting verification`}
+        />
+        <StatCard
+          label="Running tasks"
+          value={stats.runningTasks}
+          hint={`${stats.scheduledTasks} scheduled`}
         />
       </div>
 

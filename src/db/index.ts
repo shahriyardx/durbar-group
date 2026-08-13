@@ -16,4 +16,6 @@ const pool =
 if (process.env.NODE_ENV !== "production") globalForDb.__durbarPool = pool;
 
 export const db = drizzle(pool, { schema });
-export { schema };
+// Exported for the few places that need a *session*-scoped connection, e.g.
+// pg_try_advisory_lock held across an operation that is not one transaction.
+export { pool, schema };

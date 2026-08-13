@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { summariseOthers } from "@/lib/others";
 import { requireTeachingSpace } from "@/lib/rbac";
 import { cn } from "@/lib/utils";
 import { getInstructorStudents } from "@/server/instructor-view";
@@ -144,8 +145,8 @@ export default async function InstructorStudentsPage({
                   <TableHeader>
                     <TableRow>
                       <TableHead>Student</TableHead>
-                      <TableHead>Student ID</TableHead>
-                      <TableHead>Batch</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>From the sheet</TableHead>
                       <TableHead>Verified</TableHead>
                       <TableHead>Discord</TableHead>
                     </TableRow>
@@ -162,9 +163,11 @@ export default async function InstructorStudentsPage({
                           </span>
                         </TableCell>
                         <TableCell className="font-mono text-xs">
-                          {student.studentId ?? "—"}
+                          {student.phone ?? "—"}
                         </TableCell>
-                        <TableCell>{student.batch ?? "—"}</TableCell>
+                        <TableCell className="text-muted-foreground max-w-64 truncate text-xs">
+                          {summariseOthers(student.others)}
+                        </TableCell>
                         <TableCell className="font-mono text-xs">
                           {fmt(student.verifiedAt)}
                         </TableCell>
@@ -205,8 +208,8 @@ export default async function InstructorStudentsPage({
                     <TableRow>
                       <TableHead>Course email</TableHead>
                       <TableHead>Name in list</TableHead>
-                      <TableHead>Student ID</TableHead>
-                      <TableHead>Batch</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>From the sheet</TableHead>
                       <TableHead>Assigned</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -223,9 +226,11 @@ export default async function InstructorStudentsPage({
                         </TableCell>
                         <TableCell>{student.rosterName ?? "—"}</TableCell>
                         <TableCell className="font-mono text-xs">
-                          {student.studentId ?? "—"}
+                          {student.phone ?? "—"}
                         </TableCell>
-                        <TableCell>{student.batch ?? "—"}</TableCell>
+                        <TableCell className="text-muted-foreground max-w-64 truncate text-xs">
+                          {summariseOthers(student.others)}
+                        </TableCell>
                         <TableCell className="font-mono text-xs">
                           {fmt(student.assignedAt)}
                         </TableCell>

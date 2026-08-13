@@ -15,9 +15,9 @@ export type JoinedStudent = {
   discordEmail: string;
   image: string | null;
   rosterName: string | null;
-  studentId: string | null;
-  batch: string | null;
   phone: string | null;
+  /** Whatever extra columns the imported sheet carried, header → cell. */
+  others: Record<string, string> | null;
   assignedAt: Date;
   discordSyncedAt: Date | null;
   verifiedAt: Date | null;
@@ -30,9 +30,8 @@ export type JoinedStudent = {
 export type NotJoinedStudent = {
   courseEmail: string;
   rosterName: string | null;
-  studentId: string | null;
-  batch: string | null;
   phone: string | null;
+  others: Record<string, string> | null;
   onRoster: boolean;
   assignedAt: Date;
 };
@@ -61,9 +60,9 @@ export async function getInstructorById(instructorId: string) {
 }
 
 /**
- * Both halves of an instructor's roster in one call. Roster columns (student
- * id, batch, phone) are pulled across from imported_student so an export
- * carries the same fields the admin uploaded.
+ * Both halves of an instructor's student list in one call. Phone and the
+ * unmodelled `others` columns are pulled across from imported_student so an
+ * export carries exactly the fields the admin uploaded.
  */
 export async function getInstructorStudents(
   instructorId: string,
@@ -104,7 +103,11 @@ export async function getInstructorStudents(
 
   const rosterByEmail = new Map<
     string,
-    { name: string | null; studentId: string | null; batch: string | null; phone: string | null }
+    {
+      name: string | null;
+      phone: string | null;
+      others: Record<string, string> | null;
+    }
   >();
 
   for (let i = 0; i < emails.length; i += 500) {
@@ -114,9 +117,8 @@ export async function getInstructorStudents(
       .select({
         email: schema.importedStudent.email,
         name: schema.importedStudent.name,
-        studentId: schema.importedStudent.studentId,
-        batch: schema.importedStudent.batch,
         phone: schema.importedStudent.phone,
+        others: schema.importedStudent.others,
       })
       .from(schema.importedStudent)
       .where(inArray(schema.importedStudent.email, chunk));
@@ -128,9 +130,8 @@ export async function getInstructorStudents(
     return {
       ...row,
       rosterName: roster?.name ?? null,
-      studentId: roster?.studentId ?? null,
-      batch: roster?.batch ?? null,
       phone: roster?.phone ?? null,
+      others: roster?.others ?? null,
     };
   });
 
@@ -139,9 +140,8 @@ export async function getInstructorStudents(
     return {
       courseEmail: row.courseEmail,
       rosterName: roster?.name ?? null,
-      studentId: roster?.studentId ?? null,
-      batch: roster?.batch ?? null,
       phone: roster?.phone ?? null,
+      others: roster?.others ?? null,
       onRoster: Boolean(roster),
       assignedAt: row.assignedAt,
     };

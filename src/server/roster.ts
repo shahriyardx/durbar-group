@@ -8,7 +8,11 @@ import { db, schema } from "@/db";
 
 const emailSchema = z.email();
 
-/** Header aliases we accept, lowercased and stripped of punctuation. */
+/**
+ * The only three columns we model. Everything else in the sheet is kept
+ * verbatim under its own header in `others`, so a course export can carry as
+ * many extra columns as it likes and none of them are lost.
+ */
 const HEADERS: Record<string, string[]> = {
   email: [
     "email",
@@ -22,26 +26,22 @@ const HEADERS: Record<string, string[]> = {
     "e mail",
   ],
   name: ["name", "fullname", "full name", "studentname", "student name"],
-  studentId: [
-    "id",
-    "studentid",
-    "student id",
-    "roll",
-    "rollno",
-    "roll no",
-    "roll number",
+  phone: [
+    "phone",
+    "mobile",
+    "contact",
+    "phonenumber",
+    "phone number",
+    "mobile number",
+    "whatsapp",
   ],
-  batch: ["batch", "section", "group", "cohort"],
-  phone: ["phone", "mobile", "contact", "phonenumber", "phone number"],
 };
 
 export type ParsedRow = {
   email: string;
   name?: string;
-  studentId?: string;
-  batch?: string;
   phone?: string;
-  extra?: Record<string, string>;
+  others?: Record<string, string>;
 };
 
 export type ParseResult = {
@@ -151,17 +151,15 @@ export async function parseRosterFile(
     if (texts.every((t) => t === "")) continue;
 
     const record: ParsedRow = { email: "" };
-    const extra: Record<string, string> = {};
+    const others: Record<string, string> = {};
 
     texts.forEach((text, index) => {
       const field = mapping[index];
       if (!text) return;
       if (field === "email") record.email = text.toLowerCase();
       else if (field === "name") record.name = text;
-      else if (field === "studentId") record.studentId = text;
-      else if (field === "batch") record.batch = text;
       else if (field === "phone") record.phone = text;
-      else if (headers[index]) extra[headers[index]] = text;
+      else if (headers[index]) others[headers[index]] = text;
     });
 
     if (!record.email) {
@@ -186,7 +184,7 @@ export async function parseRosterFile(
     }
 
     seen.add(record.email);
-    if (Object.keys(extra).length > 0) record.extra = extra;
+    if (Object.keys(others).length > 0) record.others = others;
     rows.push(record);
   }
 
@@ -224,10 +222,8 @@ export async function importRoster(
     const chunk = rows.slice(i, i + 500).map((row) => ({
       email: row.email,
       name: row.name ?? null,
-      studentId: row.studentId ?? null,
-      batch: row.batch ?? null,
       phone: row.phone ?? null,
-      extra: row.extra ?? null,
+      others: row.others ?? null,
       sourceFile,
       importedBy: adminId,
     }));
@@ -239,10 +235,10 @@ export async function importRoster(
         target: schema.importedStudent.email,
         set: {
           name: sql`coalesce(excluded.name, ${schema.importedStudent.name})`,
-          studentId: sql`coalesce(excluded.student_id, ${schema.importedStudent.studentId})`,
-          batch: sql`coalesce(excluded.batch, ${schema.importedStudent.batch})`,
           phone: sql`coalesce(excluded.phone, ${schema.importedStudent.phone})`,
-          extra: sql`coalesce(excluded.extra, ${schema.importedStudent.extra})`,
+          // Merge rather than replace: a sheet with a different set of extra
+          // columns adds to what we already know instead of dropping it.
+          others: sql`nullif(coalesce(${schema.importedStudent.others}, '{}'::jsonb) || coalesce(excluded.others, '{}'::jsonb), '{}'::jsonb)`,
           sourceFile: sql`excluded.source_file`,
           importedBy: sql`excluded.imported_by`,
           importedAt: new Date(),

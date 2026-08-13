@@ -11,23 +11,19 @@ import type {
 export type ExportStatus = "joined" | "not-joined" | "all";
 export type ExportFormat = "xlsx" | "csv";
 
-const JOINED_HEADERS = [
+const JOINED_BASE = [
   "Name",
   "Course email",
   "Discord email",
-  "Student ID",
-  "Batch",
   "Phone",
   "Verified at",
   "Assigned at",
   "Discord access",
 ];
 
-const NOT_JOINED_HEADERS = [
+const NOT_JOINED_BASE = [
   "Course email",
   "Name in student list",
-  "Student ID",
-  "Batch",
   "Phone",
   "In student list",
   "Assigned at",
@@ -38,30 +34,50 @@ function date(value: Date | null | undefined) {
   return value ? value.toISOString().slice(0, 16).replace("T", " ") : "";
 }
 
-function joinedRow(student: JoinedStudent) {
+/**
+ * The import keeps every unmodelled spreadsheet column in `others`, so the
+ * export puts each one back as its own column — in the order they were first
+ * seen, and only for keys that actually occur in this data set.
+ */
+function otherKeys(students: { others: Record<string, string> | null }[]) {
+  const keys: string[] = [];
+  for (const student of students) {
+    for (const key of Object.keys(student.others ?? {})) {
+      if (!keys.includes(key)) keys.push(key);
+    }
+  }
+  return keys;
+}
+
+function otherValues(
+  student: { others: Record<string, string> | null },
+  keys: string[],
+) {
+  return keys.map((key) => student.others?.[key] ?? "");
+}
+
+function joinedRow(student: JoinedStudent, keys: string[]) {
   return [
     student.name,
     student.courseEmail ?? "",
     student.discordEmail,
-    student.studentId ?? "",
-    student.batch ?? "",
     student.phone ?? "",
     date(student.verifiedAt),
     date(student.assignedAt),
     student.discordSyncedAt ? "Granted" : "Pending",
+    ...otherValues(student, keys),
   ];
 }
 
-function notJoinedRow(student: NotJoinedStudent) {
+function notJoinedRow(student: NotJoinedStudent, keys: string[]) {
   return [
     student.courseEmail,
     student.rosterName ?? "",
-    student.studentId ?? "",
-    student.batch ?? "",
     student.phone ?? "",
     student.onRoster ? "Yes" : "No",
     date(student.assignedAt),
     "Has not signed in and verified yet",
+    ...otherValues(student, keys),
   ];
 }
 
@@ -77,32 +93,46 @@ function toCsv(rows: (string | number)[][]) {
 
 export function buildCsv(data: InstructorStudents, status: ExportStatus) {
   if (status === "joined") {
-    return toCsv([JOINED_HEADERS, ...data.joined.map(joinedRow)]);
+    const keys = otherKeys(data.joined);
+    return toCsv([
+      [...JOINED_BASE, ...keys],
+      ...data.joined.map((s) => joinedRow(s, keys)),
+    ]);
   }
   if (status === "not-joined") {
-    return toCsv([NOT_JOINED_HEADERS, ...data.notJoined.map(notJoinedRow)]);
+    const keys = otherKeys(data.notJoined);
+    return toCsv([
+      [...NOT_JOINED_BASE, ...keys],
+      ...data.notJoined.map((s) => notJoinedRow(s, keys)),
+    ]);
   }
 
   // A single flat sheet needs one shape, so "all" gets a leading status column.
-  const headers = ["Status", "Name", "Course email", "Student ID", "Batch", "Phone", "Discord access"];
+  const keys = otherKeys([...data.joined, ...data.notJoined]);
+  const headers = [
+    "Status",
+    "Name",
+    "Course email",
+    "Phone",
+    "Discord access",
+    ...keys,
+  ];
   const rows = [
     ...data.joined.map((s) => [
       "Joined",
       s.name,
       s.courseEmail ?? "",
-      s.studentId ?? "",
-      s.batch ?? "",
       s.phone ?? "",
       s.discordSyncedAt ? "Granted" : "Pending",
+      ...otherValues(s, keys),
     ]),
     ...data.notJoined.map((s) => [
       "Not joined",
       s.rosterName ?? "",
       s.courseEmail,
-      s.studentId ?? "",
-      s.batch ?? "",
       s.phone ?? "",
       "",
+      ...otherValues(s, keys),
     ]),
   ];
   return toCsv([headers, ...rows]);
@@ -137,10 +167,20 @@ export async function buildWorkbook(
   };
 
   if (status !== "not-joined") {
-    addSheet("Joined", JOINED_HEADERS, data.joined.map(joinedRow));
+    const keys = otherKeys(data.joined);
+    addSheet(
+      "Joined",
+      [...JOINED_BASE, ...keys],
+      data.joined.map((s) => joinedRow(s, keys)),
+    );
   }
   if (status !== "joined") {
-    addSheet("Not joined", NOT_JOINED_HEADERS, data.notJoined.map(notJoinedRow));
+    const keys = otherKeys(data.notJoined);
+    addSheet(
+      "Not joined",
+      [...NOT_JOINED_BASE, ...keys],
+      data.notJoined.map((s) => notJoinedRow(s, keys)),
+    );
   }
 
   const summary = workbook.addWorksheet("Summary");

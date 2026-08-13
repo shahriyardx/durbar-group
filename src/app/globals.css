@@ -216,6 +216,62 @@
   }
 }
 
+/* Discord-flavoured markdown. Shared by the editor, its live preview and the
+   student dashboard, so all three agree on what a task will look like. */
+@layer components {
+  .md-body {
+    @apply text-sm leading-relaxed break-words;
+  }
+  .md-body > * + * {
+    @apply mt-2;
+  }
+  .md-body h1 {
+    @apply mt-4 text-xl font-bold first:mt-0;
+  }
+  .md-body h2 {
+    @apply mt-4 text-lg font-bold first:mt-0;
+  }
+  .md-body h3 {
+    @apply mt-4 text-base font-bold first:mt-0;
+  }
+  .md-body strong {
+    @apply font-semibold;
+  }
+  .md-body a {
+    @apply text-[color:var(--mint)] underline underline-offset-2;
+  }
+  .md-body ul {
+    @apply list-disc space-y-1 pl-5;
+  }
+  .md-body ol {
+    @apply list-decimal space-y-1 pl-5;
+  }
+  .md-body li > ul,
+  .md-body li > ol {
+    @apply mt-1;
+  }
+  .md-body blockquote {
+    @apply border-foreground/25 text-muted-foreground border-l-4 pl-3;
+  }
+  .md-body code {
+    @apply bg-foreground/10 rounded px-1 py-0.5 font-mono text-[0.85em];
+  }
+  .md-body pre {
+    @apply bg-foreground/[0.06] border-border/60 overflow-x-auto rounded-lg border p-3;
+  }
+  .md-body pre code {
+    @apply bg-transparent p-0 text-xs;
+  }
+  .md-body .md-subtext {
+    @apply text-muted-foreground text-xs;
+  }
+  /* Tiptap leaves an empty paragraph behind; give it a placeholder height. */
+  .md-body p:empty::after {
+    content: " ";
+    white-space: pre;
+  }
+}
+
 @keyframes reveal-up {
   from {
     opacity: 0;

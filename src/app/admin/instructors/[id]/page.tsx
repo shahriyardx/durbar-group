@@ -27,6 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { env } from "@/lib/env";
+import { summariseOthers } from "@/lib/others";
 import { requireRole } from "@/lib/rbac";
 import {
   getInstructorById,
@@ -135,8 +136,8 @@ export default async function AdminInstructorDetailPage({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Student</TableHead>
-                    <TableHead>Student ID</TableHead>
-                    <TableHead>Batch</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>From the sheet</TableHead>
                     <TableHead>Assigned</TableHead>
                     <TableHead>Discord</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -154,9 +155,11 @@ export default async function AdminInstructorDetailPage({
                         </span>
                       </TableCell>
                       <TableCell className="font-mono text-xs">
-                        {student.studentId ?? "—"}
+                        {student.phone ?? "—"}
                       </TableCell>
-                      <TableCell>{student.batch ?? "—"}</TableCell>
+                      <TableCell className="text-muted-foreground max-w-56 truncate text-xs">
+                        {summariseOthers(student.others)}
+                      </TableCell>
                       <TableCell className="font-mono text-xs">
                         {fmt(student.assignedAt)}
                       </TableCell>
@@ -207,7 +210,7 @@ export default async function AdminInstructorDetailPage({
                   <TableRow>
                     <TableHead>Course email</TableHead>
                     <TableHead>Name in list</TableHead>
-                    <TableHead>Batch</TableHead>
+                    <TableHead>Phone</TableHead>
                     <TableHead>Assigned</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -224,7 +227,9 @@ export default async function AdminInstructorDetailPage({
                         ) : null}
                       </TableCell>
                       <TableCell>{student.rosterName ?? "—"}</TableCell>
-                      <TableCell>{student.batch ?? "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {student.phone ?? "—"}
+                      </TableCell>
                       <TableCell className="font-mono text-xs">
                         {fmt(student.assignedAt)}
                       </TableCell>

@@ -40,9 +40,11 @@ export function ImportForm() {
           required
         />
         <p className="text-muted-foreground text-xs leading-relaxed">
-          .xlsx or .csv with a header row. An <strong>Email</strong> column is
-          required; Name, Student ID, Batch and Phone are picked up when
-          present, and any other column is kept as extra data.
+          .xlsx or .csv with a header row. <strong>Name</strong>,{" "}
+          <strong>Email</strong> and <strong>Phone</strong> are recognised by
+          name — email is the only one that is required. Every other column is
+          kept exactly as it is written, under its own header, and comes back
+          out in the export.
         </p>
       </div>
 

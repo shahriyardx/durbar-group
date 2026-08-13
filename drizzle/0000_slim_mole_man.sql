@@ -1,5 +1,6 @@
 CREATE TYPE "public"."user_role" AS ENUM('student', 'instructor', 'admin', 'super_admin');--> statement-breakpoint
 CREATE TYPE "public"."channel_key" AS ENUM('announcements', 'task', 'session', 'discussion', 'help', 'resources');--> statement-breakpoint
+CREATE TYPE "public"."task_status" AS ENUM('scheduled', 'published', 'cancelled');--> statement-breakpoint
 CREATE TABLE "account" (
 	"id" text PRIMARY KEY NOT NULL,
 	"account_id" text NOT NULL,
@@ -58,10 +59,8 @@ CREATE TABLE "imported_student" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"email" text NOT NULL,
 	"name" text,
-	"student_id" text,
-	"batch" text,
 	"phone" text,
-	"extra" jsonb,
+	"others" jsonb,
 	"source_file" text,
 	"imported_by" text,
 	"imported_at" timestamp DEFAULT now() NOT NULL,
@@ -112,6 +111,32 @@ CREATE TABLE "student_assignment" (
 	CONSTRAINT "student_assignment_uq" UNIQUE("student_user_id","instructor_id")
 );
 --> statement-breakpoint
+CREATE TABLE "task" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"title" text NOT NULL,
+	"body" text NOT NULL,
+	"starts_at" timestamp NOT NULL,
+	"due_at" timestamp NOT NULL,
+	"status" "task_status" DEFAULT 'scheduled' NOT NULL,
+	"published_at" timestamp,
+	"created_by" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "task_post" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"task_id" uuid NOT NULL,
+	"instructor_id" uuid NOT NULL,
+	"discord_channel_id" text,
+	"discord_message_id" text,
+	"posted_at" timestamp,
+	"error" text,
+	"attempts" integer DEFAULT 0 NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "task_post_uq" UNIQUE("task_id","instructor_id")
+);
+--> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "imported_student" ADD CONSTRAINT "imported_student_imported_by_user_id_fk" FOREIGN KEY ("imported_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -124,5 +149,9 @@ ALTER TABLE "pending_assignment" ADD CONSTRAINT "pending_assignment_assigned_by_
 ALTER TABLE "student_assignment" ADD CONSTRAINT "student_assignment_student_user_id_user_id_fk" FOREIGN KEY ("student_user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "student_assignment" ADD CONSTRAINT "student_assignment_instructor_id_instructor_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."instructor"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "student_assignment" ADD CONSTRAINT "student_assignment_assigned_by_user_id_fk" FOREIGN KEY ("assigned_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "imported_student_batch_idx" ON "imported_student" USING btree ("batch");--> statement-breakpoint
-CREATE INDEX "student_assignment_instructor_idx" ON "student_assignment" USING btree ("instructor_id");
+ALTER TABLE "task" ADD CONSTRAINT "task_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "task_post" ADD CONSTRAINT "task_post_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "task_post" ADD CONSTRAINT "task_post_instructor_id_instructor_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."instructor"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "student_assignment_instructor_idx" ON "student_assignment" USING btree ("instructor_id");--> statement-breakpoint
+CREATE INDEX "task_starts_at_idx" ON "task" USING btree ("starts_at");--> statement-breakpoint
+CREATE INDEX "task_post_task_idx" ON "task_post" USING btree ("task_id");

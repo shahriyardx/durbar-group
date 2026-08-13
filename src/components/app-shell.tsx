@@ -22,6 +22,7 @@ function navFor(role: Role, teaching: boolean) {
       { href: "/admin", label: "Overview" },
       { href: "/admin/students", label: "Students" },
       { href: "/admin/instructors", label: "Instructors" },
+      { href: "/admin/tasks", label: "Tasks" },
       { href: "/admin/users", label: "Users" },
     );
     // An admin who also runs a course gets a way into their own space.

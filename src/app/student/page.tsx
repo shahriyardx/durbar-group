@@ -1,11 +1,14 @@
 import { asc, eq } from "drizzle-orm";
 
+import { DiscordMarkdown } from "@/components/discord-markdown";
 import { Button } from "@/components/ui/button";
 import { db, schema } from "@/db";
 import type { ChannelKey } from "@/db/schema";
 import { CHANNEL_LAYOUT } from "@/lib/discord/provision";
 import { env } from "@/lib/env";
+import { formatDateTimeBn, timeLeftBn } from "@/lib/format";
 import { requireVerifiedStudent } from "@/lib/rbac";
+import { getRunningTasks } from "@/server/tasks";
 
 const CHANNEL_COPY: Record<
   ChannelKey,
@@ -47,15 +50,18 @@ export default async function StudentPage() {
     .where(eq(schema.studentAssignment.studentUserId, user.id))
     .orderBy(asc(schema.studentAssignment.assignedAt));
 
-  const channels = rows.length
-    ? await db
-        .select({
-          instructorId: schema.instructorChannel.instructorId,
-          key: schema.instructorChannel.key,
-          channelId: schema.instructorChannel.discordChannelId,
-        })
-        .from(schema.instructorChannel)
-    : [];
+  const [channels, tasks] = await Promise.all([
+    rows.length
+      ? db
+          .select({
+            instructorId: schema.instructorChannel.instructorId,
+            key: schema.instructorChannel.key,
+            channelId: schema.instructorChannel.discordChannelId,
+          })
+          .from(schema.instructorChannel)
+      : [],
+    getRunningTasks(),
+  ]);
 
   return (
     <div lang="bn" className="space-y-10">
@@ -167,7 +173,67 @@ export default async function StudentPage() {
           </section>
         );
       })}
+
+      <RunningTasks tasks={tasks} />
     </div>
+  );
+}
+
+type RunningTask = {
+  id: string;
+  title: string;
+  body: string;
+  startsAt: Date;
+  dueAt: Date;
+};
+
+/**
+ * Read-only on purpose: a task here is the same text that went to the #task
+ * channel, and nothing on this card is clickable.
+ */
+function RunningTasks({ tasks }: { tasks: RunningTask[] }) {
+  return (
+    <section className="space-y-5">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 className="font-bangla text-2xl font-bold">চলমান টাস্ক</h2>
+        <span className="font-bangla text-muted-foreground text-sm">
+          {tasks.length > 0
+            ? `${new Intl.NumberFormat("bn-BD").format(tasks.length)}টি চলছে`
+            : null}
+        </span>
+      </div>
+
+      {tasks.length === 0 ? (
+        <div className="border-border/70 bg-card/40 rounded-2xl border border-dashed p-10 text-center">
+          <p className="font-bangla text-muted-foreground text-sm leading-loose">
+            এই মুহূর্তে কোনো টাস্ক চলছে না। নতুন টাস্ক দেওয়া হলে এখানে আর
+            ডিসকর্ডের #task চ্যানেলে দুই জায়গাতেই দেখতে পাবে।
+          </p>
+        </div>
+      ) : (
+        <ul className="space-y-5">
+          {tasks.map((task) => (
+            <li
+              key={task.id}
+              className="border-border/70 bg-card/40 relative overflow-hidden rounded-2xl border"
+            >
+              <div className="hairline absolute inset-x-0 top-0" />
+              <div className="flex flex-wrap items-start justify-between gap-4 p-8 pb-4">
+                <h3 className="font-bangla text-xl font-bold">{task.title}</h3>
+                <span className="border-border/70 font-bangla rounded-full border px-3 py-1 text-xs">
+                  {timeLeftBn(task.dueAt)}
+                </span>
+              </div>
+              <DiscordMarkdown markdown={task.body} className="px-8" />
+              <p className="font-bangla text-muted-foreground border-border/60 mt-6 border-t px-8 py-4 text-xs">
+                শুরু {formatDateTimeBn(task.startsAt)} · ডেডলাইন{" "}
+                {formatDateTimeBn(task.dueAt)}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
