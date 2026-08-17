@@ -1,12 +1,14 @@
-import { count, desc, ilike, isNotNull, or, sql } from "drizzle-orm";
+import { count, desc, isNotNull, sql } from "drizzle-orm";
 import Link from "next/link";
 
 import { ImportForm } from "@/app/admin/students/import-form";
+import { RevokeVerificationButton } from "@/app/admin/students/student-actions";
 import { StatCard } from "@/components/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -24,8 +26,26 @@ import {
 import { db, schema } from "@/db";
 import { summariseOthers } from "@/lib/others";
 import { requireRole } from "@/lib/rbac";
+import { cn } from "@/lib/utils";
+import {
+  importedStudentFilter,
+  isVerificationStatus,
+  type VerificationStatus,
+} from "@/server/imported-students";
 
 const PAGE_SIZE = 50;
+
+const STATUS_TABS: { value: VerificationStatus; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "verified", label: "Verified" },
+  { value: "unverified", label: "Not verified" },
+];
+
+const STATUS_TITLE: Record<VerificationStatus, string> = {
+  all: "All students",
+  verified: "Verified students",
+  unverified: "Not verified yet",
+};
 
 export default async function AdminStudentsPage({
   searchParams,
@@ -35,16 +55,14 @@ export default async function AdminStudentsPage({
   const params = await searchParams;
   const q = typeof params.q === "string" ? params.q.trim() : "";
   const page = Math.max(1, Number(params.page ?? 1) || 1);
+  const status =
+    typeof params.status === "string" && isVerificationStatus(params.status)
+      ? params.status
+      : "all";
 
-  const filter = q
-    ? or(
-        ilike(schema.importedStudent.email, `%${q}%`),
-        ilike(schema.importedStudent.name, `%${q}%`),
-        ilike(schema.importedStudent.phone, `%${q}%`),
-      )
-    : undefined;
+  const filter = importedStudentFilter(status, q);
 
-  const [rows, [totals], [claimedRow]] = await Promise.all([
+  const [rows, [totals], [grand], [claimedRow]] = await Promise.all([
     db
       .select({
         id: schema.importedStudent.id,
@@ -66,6 +84,9 @@ export default async function AdminStudentsPage({
       .limit(PAGE_SIZE)
       .offset((page - 1) * PAGE_SIZE),
     db.select({ n: count() }).from(schema.importedStudent).where(filter),
+    // Unfiltered, so the cards keep describing the whole cohort while the
+    // table below is narrowed to a tab.
+    db.select({ n: count() }).from(schema.importedStudent),
     db
       .select({ n: count() })
       .from(schema.importedStudent)
@@ -73,6 +94,15 @@ export default async function AdminStudentsPage({
   ]);
 
   const pageCount = Math.max(1, Math.ceil(totals.n / PAGE_SIZE));
+  const href = (next: Partial<{ status: string; q: string; page: number }>) => {
+    const search = new URLSearchParams();
+    const merged = { status, q, page: 1, ...next };
+    if (merged.status !== "all") search.set("status", merged.status);
+    if (merged.q) search.set("q", merged.q);
+    if (merged.page > 1) search.set("page", String(merged.page));
+    const query = search.toString();
+    return query ? `/admin/students?${query}` : "/admin/students";
+  };
 
   return (
     <div className="space-y-8">
@@ -86,9 +116,9 @@ export default async function AdminStudentsPage({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Imported students" value={totals.n} />
+        <StatCard label="Imported students" value={grand.n} />
         <StatCard label="Verified" value={claimedRow.n} />
-        <StatCard label="Unclaimed" value={totals.n - claimedRow.n} />
+        <StatCard label="Not verified" value={grand.n - claimedRow.n} />
       </div>
 
       <Card>
@@ -105,31 +135,76 @@ export default async function AdminStudentsPage({
       </Card>
 
       <Card>
-        <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>All students</CardTitle>
-            <CardDescription>
-              {totals.n} {q ? "matching" : "total"} students
-            </CardDescription>
-          </div>
-          <form className="flex gap-2">
-            <Input
-              name="q"
-              defaultValue={q}
-              placeholder="Search email, name or phone"
-              className="sm:w-64"
-            />
-            <Button type="submit" variant="outline">
-              Search
-            </Button>
-          </form>
+        <CardHeader>
+          <CardTitle>{STATUS_TITLE[status]}</CardTitle>
+          <CardDescription>
+            {totals.n} {q ? "matching" : ""} students
+          </CardDescription>
+          {/* CardHeader is a grid, not a flex row — CardAction is the slot it
+              reserves on the right, so a header control belongs in it. */}
+          <CardAction>
+            <form className="flex gap-2">
+              {status === "all" ? null : (
+                <input type="hidden" name="status" value={status} />
+              )}
+              <Input
+                name="q"
+                defaultValue={q}
+                placeholder="Search email, name or phone"
+                className="sm:w-64"
+              />
+              <Button type="submit" variant="outline">
+                Search
+              </Button>
+            </form>
+          </CardAction>
         </CardHeader>
         <CardContent>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div className="border-border/70 flex rounded-full border p-1">
+              {STATUS_TABS.map((tab) => (
+                <Link
+                  key={tab.value}
+                  href={href({ status: tab.value })}
+                  className={cn(
+                    "rounded-full px-4 py-1.5 text-sm transition-colors",
+                    tab.value === status
+                      ? "bg-foreground/10 text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {tab.label}
+                </Link>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-xs">
+                Export this list
+              </span>
+              {(["xlsx", "csv"] as const).map((format) => (
+                <Button key={format} asChild size="sm" variant="outline">
+                  <a
+                    href={`/api/export/imported-students?status=${status}&format=${format}${
+                      q ? `&q=${encodeURIComponent(q)}` : ""
+                    }`}
+                  >
+                    {format.toUpperCase()}
+                  </a>
+                </Button>
+              ))}
+            </div>
+          </div>
+
           {rows.length === 0 ? (
             <p className="text-muted-foreground py-8 text-center text-sm">
               {q
                 ? "No students match that search."
-                : "No students imported yet."}
+                : status === "verified"
+                  ? "Nobody has verified yet."
+                  : status === "unverified"
+                    ? "Everybody imported has verified."
+                    : "No students imported yet."}
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -141,6 +216,7 @@ export default async function AdminStudentsPage({
                     <TableHead>Phone</TableHead>
                     <TableHead>Other columns</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -165,7 +241,20 @@ export default async function AdminStudentsPage({
                             Verified · {row.claimedName}
                           </Badge>
                         ) : (
-                          <Badge variant="outline">Unclaimed</Badge>
+                          <Badge variant="outline">Not verified</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {row.claimedByUserId ? (
+                          <RevokeVerificationButton
+                            studentUserId={row.claimedByUserId}
+                            studentName={row.claimedName ?? row.email}
+                            courseEmail={row.email}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground text-xs">
+                            —
+                          </span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -182,18 +271,10 @@ export default async function AdminStudentsPage({
               </p>
               <div className="flex gap-2">
                 <Button asChild variant="outline" disabled={page <= 1}>
-                  <Link
-                    href={`/admin/students?page=${page - 1}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
-                  >
-                    Previous
-                  </Link>
+                  <Link href={href({ page: page - 1 })}>Previous</Link>
                 </Button>
                 <Button asChild variant="outline" disabled={page >= pageCount}>
-                  <Link
-                    href={`/admin/students?page=${page + 1}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
-                  >
-                    Next
-                  </Link>
+                  <Link href={href({ page: page + 1 })}>Next</Link>
                 </Button>
               </div>
             </div>

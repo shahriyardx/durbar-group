@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -80,22 +81,22 @@ export default async function AdminUsersPage({
       </div>
 
       <Card>
-        <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>Accounts</CardTitle>
-            <CardDescription>{totals.n} total</CardDescription>
-          </div>
-          <form className="flex gap-2">
-            <Input
-              name="q"
-              defaultValue={q}
-              placeholder="Search name or email"
-              className="sm:w-64"
-            />
-            <Button type="submit" variant="outline">
-              Search
-            </Button>
-          </form>
+        <CardHeader>
+          <CardTitle>Accounts</CardTitle>
+          <CardDescription>{totals.n} total</CardDescription>
+          <CardAction>
+            <form className="flex gap-2">
+              <Input
+                name="q"
+                defaultValue={q}
+                placeholder="Search name or email"
+                className="sm:w-64"
+              />
+              <Button type="submit" variant="outline">
+                Search
+              </Button>
+            </form>
+          </CardAction>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">

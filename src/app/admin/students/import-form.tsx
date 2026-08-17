@@ -1,23 +1,30 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { startTransition, useActionState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 import {
   importRosterAction,
+  previewRosterAction,
   type ImportState,
+  type PreviewState,
 } from "@/app/admin/students/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const initialState: ImportState = { status: "idle" };
+const initialPreview: PreviewState = { status: "idle" };
 
 export function ImportForm() {
   const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction, pending] = useActionState(
     importRosterAction,
     initialState,
+  );
+  const [preview, runPreview, previewing] = useActionState(
+    previewRosterAction,
+    initialPreview,
   );
 
   useEffect(() => {
@@ -27,6 +34,15 @@ export function ImportForm() {
     }
     if (state.status === "error") toast.error(state.message);
   }, [state]);
+
+  // Counting happens on the server through the real parser, rather than a
+  // second implementation in the browser that could disagree with it.
+  const onPick = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    const payload = new FormData();
+    if (file) payload.set("file", file);
+    startTransition(() => runPreview(payload));
+  };
 
   return (
     <form ref={formRef} action={formAction} className="space-y-4">
@@ -38,6 +54,7 @@ export function ImportForm() {
           type="file"
           accept=".xlsx,.xlsm,.csv"
           required
+          onChange={onPick}
         />
         <p className="text-muted-foreground text-xs leading-relaxed">
           .xlsx or .csv with a header row. <strong>Name</strong>,{" "}
@@ -48,12 +65,47 @@ export function ImportForm() {
         </p>
       </div>
 
+      {previewing ? (
+        <p className="text-muted-foreground text-sm">Reading the file…</p>
+      ) : null}
+
+      {!previewing && preview.status === "ready" ? (
+        <div className="border-border/70 bg-card/40 rounded-xl border p-4 text-sm">
+          <p>
+            <span className="text-lg font-semibold tabular-nums">
+              {preview.students}
+            </span>{" "}
+            students found in{" "}
+            <span className="font-mono text-xs">{preview.fileName}</span>
+            {preview.skipped && preview.skipped.length > 0 ? (
+              <span className="text-destructive">
+                {" "}
+                · {preview.skipped.length} rows unusable
+              </span>
+            ) : null}
+          </p>
+          {preview.columns && preview.columns.length > 0 ? (
+            <p className="text-muted-foreground mt-2 text-xs">
+              Columns: {preview.columns.join(", ")}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!previewing && preview.status === "error" ? (
+        <p className="text-destructive text-sm">{preview.message}</p>
+      ) : null}
+
       <Button
         type="submit"
-        disabled={pending}
+        disabled={pending || previewing}
         className="bg-brand-gradient h-10 rounded-full px-6 text-white hover:opacity-90"
       >
-        {pending ? "Importing…" : "Import students"}
+        {pending
+          ? "Importing…"
+          : preview.status === "ready"
+            ? `Import ${preview.students} students`
+            : "Import students"}
       </Button>
 
       {state.status === "success" ? (

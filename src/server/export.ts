@@ -3,6 +3,10 @@ import "server-only";
 import ExcelJS from "exceljs";
 
 import type {
+  ImportedStudentRow,
+  VerificationStatus,
+} from "@/server/imported-students";
+import type {
   InstructorStudents,
   JoinedStudent,
   NotJoinedStudent,
@@ -195,6 +199,94 @@ export async function buildWorkbook(
   summary.getColumn(1).font = { bold: true };
 
   return workbook.xlsx.writeBuffer();
+}
+
+const IMPORTED_BASE = [
+  "Name",
+  "Course email",
+  "Phone",
+  "Verified",
+  "Account",
+  "Discord email",
+  "Verified at",
+  "Instructor",
+  "Imported at",
+];
+
+function importedRow(student: ImportedStudentRow, keys: string[]) {
+  return [
+    student.name ?? "",
+    student.email,
+    student.phone ?? "",
+    student.verified ? "Yes" : "No",
+    student.accountName ?? "",
+    student.discordEmail ?? "",
+    date(student.verifiedAt),
+    student.instructors.join(", "),
+    date(student.importedAt),
+    ...otherValues(student, keys),
+  ];
+}
+
+export function buildImportedCsv(students: ImportedStudentRow[]) {
+  const keys = otherKeys(students);
+  return toCsv([
+    [...IMPORTED_BASE, ...keys],
+    ...students.map((student) => importedRow(student, keys)),
+  ]);
+}
+
+/**
+ * One sheet per half plus a summary, so "who has not verified yet" is a tab
+ * rather than a filter the admin has to apply in Excel.
+ */
+export async function buildImportedWorkbook(
+  students: ImportedStudentRow[],
+  status: VerificationStatus,
+) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Durbar";
+  const keys = otherKeys(students);
+
+  const addSheet = (title: string, rows: ImportedStudentRow[]) => {
+    const sheet = workbook.addWorksheet(title);
+    const headers = [...IMPORTED_BASE, ...keys];
+    const body = rows.map((student) => importedRow(student, keys));
+    sheet.addRow(headers);
+    sheet.getRow(1).font = { bold: true };
+    sheet.views = [{ state: "frozen", ySplit: 1 }];
+    body.forEach((row) => sheet.addRow(row));
+    sheet.columns.forEach((column, index) => {
+      const longest = body.reduce(
+        (max, row) => Math.max(max, String(row[index] ?? "").length),
+        headers[index].length,
+      );
+      column.width = Math.min(42, Math.max(12, longest + 2));
+    });
+  };
+
+  const verified = students.filter((s) => s.verified);
+  const unverified = students.filter((s) => !s.verified);
+
+  if (status !== "unverified") addSheet("Verified", verified);
+  if (status !== "verified") addSheet("Not verified", unverified);
+
+  const summary = workbook.addWorksheet("Summary");
+  summary.addRow(["Students in this export", students.length]);
+  summary.addRow(["Verified", verified.length]);
+  summary.addRow(["Not verified", unverified.length]);
+  summary.getColumn(1).width = 26;
+  summary.getColumn(1).font = { bold: true };
+
+  return workbook.xlsx.writeBuffer();
+}
+
+export function importedExportFilename(
+  status: VerificationStatus,
+  format: ExportFormat,
+  stamp: string,
+) {
+  return `durbar-students-${status}-${stamp}.${format}`;
 }
 
 export function exportFilename(

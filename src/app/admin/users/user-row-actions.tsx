@@ -1,6 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import {
+  startTransition,
+  useActionState,
+  useEffect,
+  useOptimistic,
+} from "react";
 import { toast } from "sonner";
 
 import {
@@ -49,11 +54,13 @@ export function RoleSelect({
   disabled: boolean;
   canGrantAdmin: boolean;
 }) {
-  const formRef = useRef<HTMLFormElement>(null);
-  const [state, formAction, pending] = useActionState(
+  const [state, submit, pending] = useActionState(
     changeRoleAction,
     initialState,
   );
+  // Shows the pick straight away, and falls back to whatever `role` says once
+  // the action settles — so a refusal snaps the select back on its own.
+  const [selected, setSelected] = useOptimistic(role);
 
   useEffect(() => {
     if (state.status === "success") toast.success(state.message);
@@ -66,31 +73,38 @@ export function RoleSelect({
       (option.value !== "admin" && option.value !== "super_admin"),
   );
 
+  // The form data is built by hand rather than read off a submitted <form>.
+  // Radix writes its hidden input on the React commit, so a requestSubmit()
+  // fired from inside onValueChange would post the *previous* role — which
+  // looked like the select silently snapping back.
+  const change = (next: string) => {
+    if (next === selected) return;
+    const payload = new FormData();
+    payload.set("userId", userId);
+    payload.set("role", next);
+    startTransition(() => {
+      setSelected(next as Role);
+      submit(payload);
+    });
+  };
+
   return (
-    <form ref={formRef} action={formAction}>
-      <input type="hidden" name="userId" value={userId} />
-      <Select
-        name="role"
-        defaultValue={role}
-        disabled={disabled || pending}
-        // Promotions provision Discord, so the change fires on selection
-        // rather than hiding behind a second save button.
-        onValueChange={(next) => {
-          if (next !== role) formRef.current?.requestSubmit();
-        }}
-      >
-        <SelectTrigger size="sm" className="w-40">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </form>
+    <Select
+      value={selected}
+      onValueChange={change}
+      disabled={disabled || pending}
+    >
+      <SelectTrigger size="sm" className="w-40">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 

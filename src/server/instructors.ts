@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { getDiscordUserId } from "@/lib/discord/account";
@@ -8,6 +8,7 @@ import {
   addRoleToMember,
   deprovisionInstructorSpace,
   provisionInstructorSpace,
+  removeRoleFromMember,
 } from "@/lib/discord/provision";
 import {
   revokeStudentDiscordAccess,
@@ -359,4 +360,190 @@ export async function unassignStudent(
   if (instructor?.studentRoleId) {
     await revokeStudentDiscordAccess(studentUserId, instructor.studentRoleId);
   }
+}
+
+export type TransferResult =
+  | { ok: true; discordMoved: boolean; discordError?: string }
+  | { ok: false; error: string };
+
+/**
+ * Move a student from one instructor to another.
+ *
+ * Only a claimed row has a Discord side to move: the student is a real member
+ * holding the old instructor's student role. For an email that nobody has
+ * verified with yet there is nothing on Discord to touch, so the transfer is
+ * the row update and nothing else — see `transferPendingAssignment`.
+ */
+export async function transferStudent(
+  studentUserId: string,
+  fromInstructorId: string,
+  toInstructorId: string,
+  adminId: string,
+): Promise<TransferResult> {
+  if (fromInstructorId === toInstructorId) {
+    return { ok: false, error: "That is the instructor they are already with." };
+  }
+
+  const instructors = await db
+    .select({
+      id: schema.instructor.id,
+      displayName: schema.instructor.displayName,
+      studentRoleId: schema.instructor.discordStudentRoleId,
+    })
+    .from(schema.instructor)
+    .where(inArray(schema.instructor.id, [fromInstructorId, toInstructorId]));
+
+  const from = instructors.find((row) => row.id === fromInstructorId);
+  const to = instructors.find((row) => row.id === toInstructorId);
+  if (!from || !to) return { ok: false, error: "That instructor is gone." };
+
+  const [existing] = await db
+    .select({ id: schema.studentAssignment.id })
+    .from(schema.studentAssignment)
+    .where(
+      and(
+        eq(schema.studentAssignment.studentUserId, studentUserId),
+        eq(schema.studentAssignment.instructorId, fromInstructorId),
+      ),
+    )
+    .limit(1);
+
+  if (!existing) {
+    return { ok: false, error: "They are not assigned to that instructor." };
+  }
+
+  const [alreadyThere] = await db
+    .select({ id: schema.studentAssignment.id })
+    .from(schema.studentAssignment)
+    .where(
+      and(
+        eq(schema.studentAssignment.studentUserId, studentUserId),
+        eq(schema.studentAssignment.instructorId, toInstructorId),
+      ),
+    )
+    .limit(1);
+
+  if (alreadyThere) {
+    // Assigned to both already: the transfer collapses to dropping the old one.
+    await db
+      .delete(schema.studentAssignment)
+      .where(eq(schema.studentAssignment.id, existing.id));
+  } else {
+    await db
+      .update(schema.studentAssignment)
+      .set({
+        instructorId: toInstructorId,
+        assignedBy: adminId,
+        assignedAt: new Date(),
+        // Not synced until the roles below actually land.
+        discordSyncedAt: null,
+      })
+      .where(eq(schema.studentAssignment.id, existing.id));
+  }
+
+  const discordUserId = await getDiscordUserId(studentUserId);
+  if (!discordUserId) return { ok: true, discordMoved: false };
+
+  try {
+    // Add before removing, so they are never locked out mid-transfer.
+    if (to.studentRoleId) {
+      await addRoleToMember(
+        discordUserId,
+        to.studentRoleId,
+        `Transferred to ${to.displayName} in Durbar`,
+      );
+    }
+    if (from.studentRoleId) {
+      await removeRoleFromMember(
+        discordUserId,
+        from.studentRoleId,
+        `Transferred away from ${from.displayName} in Durbar`,
+      );
+    }
+  } catch (error) {
+    return {
+      ok: true,
+      discordMoved: false,
+      discordError:
+        error instanceof Error ? error.message : "Discord call failed.",
+    };
+  }
+
+  if (!alreadyThere) {
+    await db
+      .update(schema.studentAssignment)
+      .set({ discordSyncedAt: new Date() })
+      .where(eq(schema.studentAssignment.id, existing.id));
+  }
+
+  return { ok: true, discordMoved: true };
+}
+
+/**
+ * Move an email that was assigned before anybody verified with it. Nothing
+ * exists on Discord for it yet, so this really is only a row update.
+ */
+export async function transferPendingAssignment(
+  courseEmail: string,
+  fromInstructorId: string,
+  toInstructorId: string,
+  adminId: string,
+): Promise<TransferResult> {
+  if (fromInstructorId === toInstructorId) {
+    return { ok: false, error: "That is the instructor they are already with." };
+  }
+
+  const email = normalizeEmail(courseEmail);
+
+  // Already parked against the target: keep that one and drop this.
+  const [alreadyThere] = await db
+    .select({ id: schema.pendingAssignment.id })
+    .from(schema.pendingAssignment)
+    .where(
+      and(
+        eq(schema.pendingAssignment.courseEmail, email),
+        eq(schema.pendingAssignment.instructorId, toInstructorId),
+      ),
+    )
+    .limit(1);
+
+  if (alreadyThere) {
+    await db
+      .delete(schema.pendingAssignment)
+      .where(
+        and(
+          eq(schema.pendingAssignment.courseEmail, email),
+          eq(schema.pendingAssignment.instructorId, fromInstructorId),
+        ),
+      );
+    return { ok: true, discordMoved: false };
+  }
+
+  const updated = await db
+    .update(schema.pendingAssignment)
+    .set({ instructorId: toInstructorId, assignedBy: adminId })
+    .where(
+      and(
+        eq(schema.pendingAssignment.courseEmail, email),
+        eq(schema.pendingAssignment.instructorId, fromInstructorId),
+      ),
+    )
+    .returning({ id: schema.pendingAssignment.id });
+
+  if (updated.length === 0) {
+    return { ok: false, error: "That email is not pending for this instructor." };
+  }
+
+  return { ok: true, discordMoved: false };
+}
+
+/** Every instructor an admin could transfer somebody to. */
+export async function listInstructorOptions() {
+  return db
+    .select({
+      id: schema.instructor.id,
+      displayName: schema.instructor.displayName,
+    })
+    .from(schema.instructor)
+    .orderBy(asc(schema.instructor.displayName));
 }

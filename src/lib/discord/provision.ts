@@ -241,6 +241,23 @@ export async function removeRoleFromMember(
   );
 }
 
+/**
+ * Kick somebody out of the guild entirely. Needs KICK_MEMBERS on the bot, and
+ * the bot's own role above theirs. Somebody who already left is the outcome we
+ * wanted, so 404 is success.
+ */
+export async function removeGuildMember(
+  discordUserId: string,
+  reason = "Verification revoked in Durbar",
+) {
+  await ignoreMissing(
+    discordFetch(`/guilds/${guildId()}/members/${discordUserId}`, {
+      method: "DELETE",
+      reason,
+    }),
+  );
+}
+
 export async function isGuildMember(discordUserId: string) {
   try {
     await discordFetch(`/guilds/${guildId()}/members/${discordUserId}`);

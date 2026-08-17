@@ -5,6 +5,7 @@ import { AssignDialog } from "@/app/admin/instructors/assign-dialog";
 import { RetryProvisionButton } from "@/app/admin/instructors/instructor-actions";
 import {
   ResyncButton,
+  TransferButton,
   UnassignButton,
   WithdrawPendingButton,
 } from "@/app/admin/instructors/student-row-actions";
@@ -29,6 +30,7 @@ import {
 import { env } from "@/lib/env";
 import { summariseOthers } from "@/lib/others";
 import { requireRole } from "@/lib/rbac";
+import { listInstructorOptions } from "@/server/instructors";
 import {
   getInstructorById,
   getInstructorStudents,
@@ -47,7 +49,10 @@ export default async function AdminInstructorDetailPage({
   const instructor = await getInstructorById(id);
   if (!instructor) notFound();
 
-  const { joined, notJoined } = await getInstructorStudents(instructor.id);
+  const [{ joined, notJoined }, instructors] = await Promise.all([
+    getInstructorStudents(instructor.id),
+    listInstructorOptions(),
+  ]);
   const granted = joined.filter((s) => s.discordSyncedAt).length;
 
   return (
@@ -171,8 +176,14 @@ export default async function AdminInstructorDetailPage({
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="flex justify-end gap-2">
+                        <div className="flex flex-wrap justify-end gap-2">
                           <ResyncButton studentUserId={student.userId} />
+                          <TransferButton
+                            fromInstructorId={instructor.id}
+                            instructors={instructors}
+                            label={student.name}
+                            studentUserId={student.userId}
+                          />
                           <UnassignButton
                             studentUserId={student.userId}
                             instructorId={instructor.id}
@@ -233,11 +244,19 @@ export default async function AdminInstructorDetailPage({
                       <TableCell className="font-mono text-xs">
                         {fmt(student.assignedAt)}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <WithdrawPendingButton
-                          courseEmail={student.courseEmail}
-                          instructorId={instructor.id}
-                        />
+                      <TableCell>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <TransferButton
+                            fromInstructorId={instructor.id}
+                            instructors={instructors}
+                            label={student.courseEmail}
+                            courseEmail={student.courseEmail}
+                          />
+                          <WithdrawPendingButton
+                            courseEmail={student.courseEmail}
+                            instructorId={instructor.id}
+                          />
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -5,6 +5,7 @@ import { StatCard } from "@/components/stat-card";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -98,16 +99,16 @@ export default async function InstructorPage() {
       </div>
 
       <Card>
-        <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>Students</CardTitle>
-            <CardDescription>
-              {joined.length} joined · {notJoined.length} still to verify
-            </CardDescription>
-          </div>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/instructor/students">Open the list</Link>
-          </Button>
+        <CardHeader>
+          <CardTitle>Students</CardTitle>
+          <CardDescription>
+            {joined.length} joined · {notJoined.length} still to verify
+          </CardDescription>
+          <CardAction>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/instructor/students">Open the list</Link>
+            </Button>
+          </CardAction>
         </CardHeader>
       </Card>
 

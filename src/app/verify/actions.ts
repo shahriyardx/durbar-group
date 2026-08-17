@@ -34,8 +34,11 @@ export async function verifyCourseEmail(
   revalidatePath("/", "layout");
   return {
     status: "success",
-    message: result.discordSynced
-      ? "ভেরিফাই হয়েছে! ডিসকর্ড অ্যাক্সেস সেট করা হয়েছে।"
-      : "ভেরিফাই হয়েছে! ইন্সট্রাক্টর অ্যাসাইন হলেই ডিসকর্ড অ্যাক্সেস পেয়ে যাবে।",
+    // Reaching here means they are in the Discord server; what differs is
+    // whether an instructor has been assigned, and so whether they can see
+    // any channels yet.
+    message: result.assigned
+      ? "ভেরিফাই হয়েছে! ডিসকর্ড সার্ভারে যুক্ত করা হয়েছে, তোমার চ্যানেলগুলো এখন দেখতে পাবে।"
+      : "ভেরিফাই হয়েছে! ডিসকর্ড সার্ভারে যুক্ত করা হয়েছে। ইন্সট্রাক্টর অ্যাসাইন হলেই চ্যানেলগুলো দেখা যাবে।",
   };
 }

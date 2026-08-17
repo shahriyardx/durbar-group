@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -110,8 +111,8 @@ export default async function AdminInstructorsPage() {
 
             return (
               <Card key={instructor.id}>
-                <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
+                <CardHeader>
+                  <div className="min-w-0">
                     <CardTitle className="flex flex-wrap items-center gap-3">
                       {instructor.displayName}
                       {instructor.categoryId ? (
@@ -134,7 +135,7 @@ export default async function AdminInstructorsPage() {
                     </CardDescription>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
+                  <CardAction className="flex flex-wrap items-center justify-end gap-2">
                     <Button asChild size="sm" variant="outline">
                       <Link href={`/admin/instructors/${instructor.id}`}>
                         Manage students
@@ -168,7 +169,7 @@ export default async function AdminInstructorsPage() {
                       instructorId={instructor.id}
                       instructorName={instructor.displayName}
                     />
-                  </div>
+                  </CardAction>
                 </CardHeader>
 
                 <CardContent>

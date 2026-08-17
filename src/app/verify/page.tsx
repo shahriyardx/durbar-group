@@ -1,15 +1,23 @@
 import { redirect } from "next/navigation";
 
 import { VerifyForm } from "@/app/verify/verify-form";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import type { Role } from "@/db/schema";
 import { hasRole, homeFor, requireUser } from "@/lib/rbac";
+
+const PROMISES = [
+  {
+    title: "নিজের ইন্সট্রাক্টর",
+    body: "প্রতিটি ব্যাচের জন্য আলাদা ইন্সট্রাক্টর, আলাদা ক্যাটাগরি।",
+  },
+  {
+    title: "ছয়টি চ্যানেল",
+    body: "অ্যানাউন্সমেন্ট, টাস্ক, সেশন, ডিসকাশন, হেল্প আর রিসোর্স।",
+  },
+  {
+    title: "হেল্প ফোরাম",
+    body: "প্রতিটি প্রশ্নের জন্য আলাদা পোস্ট — উত্তর হারিয়ে যায় না।",
+  },
+];
 
 export default async function VerifyPage() {
   const user = await requireUser();
@@ -20,25 +28,78 @@ export default async function VerifyPage() {
   return (
     <main
       lang="bn"
-      className="brand-glow grain relative isolate flex flex-1 items-center justify-center overflow-hidden p-6"
+      className="grid flex-1 lg:grid-cols-[1.1fr_1fr] xl:grid-cols-[1.25fr_1fr]"
     >
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <p className="font-bangla text-muted-foreground text-xs">
+      {/* Branding rail. Hidden on small screens, where the form is the only
+          thing worth the space. */}
+      <aside className="brand-glow grain blueprint relative isolate hidden flex-col justify-between overflow-hidden p-12 lg:flex xl:p-16">
+        <div>
+          <p className="text-brand-gradient font-heading text-2xl font-bold tracking-tight">
+            Durbar
+          </p>
+          <p className="font-bangla text-muted-foreground mt-2 text-sm">
+            দুর্বার গ্রুপ · প্রোগ্রামিং হিরো
+          </p>
+        </div>
+
+        <div className="max-w-lg">
+          <h1 className="font-bangla text-4xl leading-snug font-bold text-balance xl:text-5xl">
+            আর <span className="text-brand-gradient">এক ধাপ</span> — তারপরই
+            তোমার গ্রুপ
+          </h1>
+          <p className="font-bangla text-muted-foreground mt-6 leading-loose">
+            দুর্বার গ্রুপ কোনো আলাদা কোর্স নয়। যারা নিয়ম মেনে লেগে থাকতে রাজি,
+            এটা তাদের জন্য একটা ছোট, শক্ত টিম।
+          </p>
+
+          <ul className="mt-10 space-y-5">
+            {PROMISES.map((item, index) => (
+              <li key={item.title} className="flex gap-4">
+                <span className="text-muted-foreground/70 mt-0.5 font-mono text-xs tabular-nums">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <span className="min-w-0">
+                  <span className="font-bangla block font-semibold">
+                    {item.title}
+                  </span>
+                  <span className="font-bangla text-muted-foreground block text-sm leading-loose">
+                    {item.body}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="font-bangla text-muted-foreground/70 text-xs leading-loose">
+          ভেরিফাই করলেই ডিসকর্ড সার্ভারে যুক্ত হয়ে যাবে — আলাদা ইনভাইট লিংক
+          লাগবে না।
+        </p>
+      </aside>
+
+      <section className="border-border/60 flex items-center justify-center p-6 lg:border-l xl:p-12">
+        <div className="w-full max-w-md">
+          <p className="text-brand-gradient font-heading mb-8 text-xl font-bold tracking-tight lg:hidden">
+            Durbar
+          </p>
+
+          <p className="font-bangla text-muted-foreground font-mono text-xs">
             ধাপ ২ / ২
           </p>
-          <CardTitle className="font-bangla pt-2 text-2xl leading-snug">
+          <h2 className="font-bangla mt-3 text-3xl leading-snug font-bold">
             কোর্সের ইমেইল দিয়ে জয়েন করো
-          </CardTitle>
-          <CardDescription className="font-bangla leading-loose">
-            {user.name} হিসেবে লগইন করা আছে। তুমি যেই ইমেইল দিয়ে কোর্সে এনরোল
-            করেছ, সেটা লিখলেই আমরা তোমাকে স্টুডেন্ট লিস্টে মিলিয়ে নেব।
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <VerifyForm />
-        </CardContent>
-      </Card>
+          </h2>
+          <p className="font-bangla text-muted-foreground mt-4 text-sm leading-loose">
+            <span className="text-foreground font-medium">{user.name}</span>{" "}
+            হিসেবে লগইন করা আছে। তুমি যেই ইমেইল দিয়ে কোর্সে এনরোল করেছ, সেটা
+            লিখলেই আমরা তোমাকে স্টুডেন্ট লিস্টে মিলিয়ে নেব।
+          </p>
+
+          <div className="mt-8">
+            <VerifyForm />
+          </div>
+        </div>
+      </section>
     </main>
   );
 }

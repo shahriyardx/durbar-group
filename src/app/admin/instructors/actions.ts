@@ -10,6 +10,8 @@ import {
   provisionSpaceFor,
   removePendingAssignment,
   revokeInstructorSpace,
+  transferPendingAssignment,
+  transferStudent,
   unassignStudent,
   type AssignSummary,
 } from "@/server/instructors";
@@ -163,6 +165,54 @@ export async function resyncStudentAction(
       message: error instanceof Error ? error.message : "Discord call failed.",
     };
   }
+}
+
+export async function transferStudentAction(
+  _prev: SimpleState,
+  formData: FormData,
+): Promise<SimpleState> {
+  const admin = await requireRole("admin");
+  const studentUserId = String(formData.get("studentUserId") ?? "");
+  const courseEmail = String(formData.get("courseEmail") ?? "");
+  const fromInstructorId = String(formData.get("fromInstructorId") ?? "");
+  const toInstructorId = String(formData.get("toInstructorId") ?? "");
+
+  if (!fromInstructorId || !toInstructorId) {
+    return { status: "error", message: "Pick an instructor to move them to." };
+  }
+
+  // A claimed account has Discord roles to move; a pending email does not.
+  const result = studentUserId
+    ? await transferStudent(
+        studentUserId,
+        fromInstructorId,
+        toInstructorId,
+        admin.id,
+      )
+    : await transferPendingAssignment(
+        courseEmail,
+        fromInstructorId,
+        toInstructorId,
+        admin.id,
+      );
+
+  refresh();
+  if (!result.ok) return { status: "error", message: result.error };
+
+  if (result.discordError) {
+    return {
+      status: "error",
+      message: `Transferred, but Discord roles did not move: ${result.discordError}`,
+    };
+  }
+  return {
+    status: "success",
+    message: result.discordMoved
+      ? "Transferred, and their Discord access moved with them."
+      : studentUserId
+        ? "Transferred. They have no Discord account linked, so nothing moved there."
+        : "Transferred. Nothing to move on Discord until they verify.",
+  };
 }
 
 export type AssignState = {
