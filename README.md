@@ -60,6 +60,37 @@ bun run db:migrate
 bun run dev
 ```
 
+## Docker / Coolify
+
+```bash
+docker build -t durbar .
+docker run -p 3000:3000 --env-file .env durbar
+```
+
+Point Coolify at the repository with the Dockerfile build pack, set the
+environment variables from `.env.example`, and expose port 3000. There is
+nothing to run by hand: the entrypoint applies any outstanding migrations and
+then starts the server. `drizzle-orm`'s own migrator does that, not
+`drizzle-kit`, so it works from the production image — and it records what it
+has applied, so a restart with nothing new to do costs one query.
+
+Migrations run at container start rather than during the build. A build should
+produce the same image wherever it runs, and the builder may well be a host
+that cannot reach the database; a container start always can.
+
+Three build stages, each on the runtime that suits it: Bun installs from
+`bun.lock`, **Node** runs `next build` — Bun 1.3.14 segfaults on exit from it,
+which fails the layer even though the output is fine — and Bun runs the server
+and the TypeScript migrator. `output: "standalone"` keeps the image near
+340 MB, and it runs as a non-root `durbar` user.
+
+The build needs placeholder values for every variable, because `src/lib/env.ts`
+validates on import and `next build` imports it while collecting routes. They
+are set on the build command alone, never with `ENV`, so they do not reach the
+image — and nothing is `NEXT_PUBLIC_`, so nothing is inlined into a bundle.
+`.dockerignore` excludes `.env`, which matters more than it looks: Next's file
+tracer copies a stray `.env` straight into the standalone output.
+
 Discord Developer Portal setup:
 
 1. Create an application, add a bot, invite it to your guild with **Manage

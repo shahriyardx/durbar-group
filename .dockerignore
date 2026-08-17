@@ -1,0 +1,21 @@
+# Secrets must never reach the build context: Next's file tracer copies a
+# stray .env straight into the standalone output, and from there into the image.
+.env
+.env.*
+!.env.example
+
+node_modules
+.next
+.git
+.github
+.vscode
+.idea
+
+drizzle.config.ts
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+*.log
+.DS_Store
+README.md
