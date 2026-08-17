@@ -1,12 +1,13 @@
 import { asc, eq } from "drizzle-orm";
 
+import { Countdown } from "@/components/countdown";
 import { DiscordMarkdown } from "@/components/discord-markdown";
 import { Button } from "@/components/ui/button";
 import { db, schema } from "@/db";
 import type { ChannelKey } from "@/db/schema";
 import { CHANNEL_LAYOUT } from "@/lib/discord/provision";
 import { env } from "@/lib/env";
-import { formatDateTimeBn, timeLeftBn } from "@/lib/format";
+import { countdownBn, formatDateTimeBn } from "@/lib/format";
 import { requireVerifiedStudent } from "@/lib/rbac";
 import { getRunningTasks } from "@/server/tasks";
 
@@ -220,8 +221,11 @@ function RunningTasks({ tasks }: { tasks: RunningTask[] }) {
               <div className="hairline absolute inset-x-0 top-0" />
               <div className="flex flex-wrap items-start justify-between gap-4 p-8 pb-4">
                 <h3 className="font-bangla text-xl font-bold">{task.title}</h3>
-                <span className="border-border/70 font-bangla rounded-full border px-3 py-1 text-xs">
-                  {timeLeftBn(task.dueAt)}
+                <span className="border-border/70 font-bangla shrink-0 rounded-full border px-3 py-1 text-xs">
+                  <Countdown
+                    dueAt={task.dueAt}
+                    initial={countdownBn(task.dueAt)}
+                  />
                 </span>
               </div>
               <DiscordMarkdown markdown={task.body} className="px-8" />

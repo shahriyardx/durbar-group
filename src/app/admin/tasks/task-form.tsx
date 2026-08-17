@@ -31,6 +31,7 @@ export function TaskForm({
 
   useEffect(() => {
     if (state.status === "success") toast.success(state.message);
+    // Field errors render inline; anything else is worth a toast.
     if (state.status === "error" && !state.fieldErrors) toast.error(state.message);
   }, [state]);
 

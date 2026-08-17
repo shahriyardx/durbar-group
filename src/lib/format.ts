@@ -25,19 +25,31 @@ export function formatDateTimeBn(value: Date | null | undefined) {
   return value ? BN.format(value) : "—";
 }
 
-/** "2 days left" / "overdue by 3 hours", in Bengali for student screens. */
-export function timeLeftBn(due: Date, now: Date = new Date()) {
-  const minutes = Math.round((due.getTime() - now.getTime()) / 60000);
-  const overdue = minutes < 0;
-  const abs = Math.abs(minutes);
+const BN_DIGITS = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
 
-  const bn = new Intl.NumberFormat("bn-BD");
-  let amount: string;
-  if (abs < 60) amount = `${bn.format(abs)} মিনিট`;
-  else if (abs < 60 * 24) amount = `${bn.format(Math.round(abs / 60))} ঘণ্টা`;
-  else amount = `${bn.format(Math.round(abs / (60 * 24)))} দিন`;
+/** Intl can localise a number, but not a zero-padded clock, so map digits. */
+export function bnDigits(value: string | number) {
+  return String(value).replace(/\d/g, (digit) => BN_DIGITS[Number(digit)]);
+}
 
-  return overdue ? `${amount} পার হয়ে গেছে` : `${amount} বাকি`;
+/**
+ * Live countdown to a deadline, in Bengali. Seconds are included so the
+ * student dashboard can tick — the same function runs on the server for the
+ * first paint and in the browser once a second after that.
+ */
+export function countdownBn(due: Date, now: Date = new Date()) {
+  const total = Math.floor((due.getTime() - now.getTime()) / 1000);
+  if (total <= 0) return "সময় শেষ";
+
+  const days = Math.floor(total / 86_400);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const clock = bnDigits(
+    `${pad(Math.floor((total % 86_400) / 3600))}:${pad(
+      Math.floor((total % 3600) / 60),
+    )}:${pad(total % 60)}`,
+  );
+
+  return days > 0 ? `${bnDigits(days)} দিন ${clock} বাকি` : `${clock} বাকি`;
 }
 
 /**

@@ -131,9 +131,9 @@ export function DeleteTaskButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete “{title}”?</AlertDialogTitle>
           <AlertDialogDescription>
-            The task and its delivery record are removed and students stop
-            seeing it. Messages already posted stay in Discord — delete those
-            there if you need to.
+            Every message already posted is deleted from Discord, then the task
+            and its delivery record go too, and students stop seeing it. If a
+            message cannot be deleted the task is kept so you can retry.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

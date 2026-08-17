@@ -191,8 +191,9 @@ export default async function TaskDetailPage({
         <CardHeader>
           <CardTitle>Edit</CardTitle>
           <CardDescription>
-            Editing changes the dashboard and any future delivery. Messages
-            Discord already has are not rewritten.
+            Saving rewrites the messages Discord already has, so the two never
+            disagree. Discord does not re-notify on an edit, so nobody is
+            pinged a second time.
           </CardDescription>
         </CardHeader>
         <CardContent>

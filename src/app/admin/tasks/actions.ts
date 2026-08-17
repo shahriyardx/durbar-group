@@ -8,6 +8,7 @@ import { requireRole } from "@/lib/rbac";
 import {
   createTask,
   deleteTask,
+  deleteTaskMessages,
   publishDueTasks,
   setTaskStatus,
   startTaskNow,
@@ -121,10 +122,23 @@ export async function updateTaskAction(
   if (!updated) return { status: "error", message: "That task is gone." };
 
   refresh(taskId);
+
+  const { changed, failed } = updated.discord;
+  if (failed > 0) {
+    return {
+      status: "error",
+      message: `Task saved, but ${failed} Discord ${
+        failed === 1 ? "message" : "messages"
+      } could not be rewritten. See the delivery list.`,
+    };
+  }
   return {
     status: "success",
-    // Editing does not rewrite messages Discord already has.
-    message: "Task updated. Messages already posted to Discord are unchanged.",
+    message: changed
+      ? `Task updated, and ${changed} Discord ${
+          changed === 1 ? "message" : "messages"
+        } rewritten.`
+      : "Task updated.",
   };
 }
 
@@ -191,14 +205,32 @@ export async function setTaskStatusAction(
     return { status: "error", message: "Missing task." };
   }
 
-  await setTaskStatus(taskId, next);
+  const removed = await setTaskStatus(taskId, next);
   refresh(taskId);
+
+  if (next === "scheduled") {
+    return {
+      status: "success",
+      message: "Restored. It will be posted again on the next run.",
+    };
+  }
+  if (removed && removed.failed > 0) {
+    return {
+      status: "error",
+      message: `Cancelled, but ${removed.failed} Discord ${
+        removed.failed === 1 ? "message" : "messages"
+      } could not be deleted — remove ${
+        removed.failed === 1 ? "it" : "them"
+      } by hand.`,
+    };
+  }
   return {
     status: "success",
-    message:
-      next === "cancelled"
-        ? "Cancelled. It will not be posted, and students stop seeing it."
-        : "Restored. It will be posted on the next run.",
+    message: removed?.changed
+      ? `Cancelled. ${removed.changed} Discord ${
+          removed.changed === 1 ? "message" : "messages"
+        } deleted, and students stop seeing it.`
+      : "Cancelled. It will not be posted, and students stop seeing it.",
   };
 }
 
@@ -209,6 +241,19 @@ export async function deleteTaskAction(
   await requireRole("admin");
   const taskId = String(formData.get("taskId") ?? "");
   if (!taskId) return { status: "error", message: "Missing task." };
+
+  // Take the messages down first. If any survive, keep the task so the admin
+  // can retry — deleting the row would lose track of where they are.
+  const removed = await deleteTaskMessages(taskId);
+  if (removed.failed > 0) {
+    refresh(taskId);
+    return {
+      status: "error",
+      message: `Kept the task: ${removed.failed} Discord ${
+        removed.failed === 1 ? "message" : "messages"
+      } could not be deleted. Fix that and try again.`,
+    };
+  }
 
   await deleteTask(taskId);
   refresh();

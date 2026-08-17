@@ -1,10 +1,26 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  lte,
+  ne,
+  sql,
+} from "drizzle-orm";
 import { z } from "zod";
 
 import { db, pool, schema } from "@/db";
-import { createMessage } from "@/lib/discord/messages";
+import {
+  createMessage,
+  deleteMessage,
+  editMessage,
+} from "@/lib/discord/messages";
 import {
   DISCORD_MESSAGE_LIMIT,
   escapeDiscordText,
@@ -43,6 +59,10 @@ export async function createTask(input: TaskInput, adminId: string) {
   return row;
 }
 
+/**
+ * Save the edit, then rewrite the copies Discord already has so the two never
+ * disagree. Discord does not re-notify on an edit, so nobody is pinged twice.
+ */
 export async function updateTask(taskId: string, input: TaskInput) {
   const [row] = await db
     .update(schema.task)
@@ -55,21 +75,135 @@ export async function updateTask(taskId: string, input: TaskInput) {
     })
     .where(eq(schema.task.id, taskId))
     .returning();
-  return row ?? null;
+
+  if (!row) return null;
+  return { ...row, discord: await editTaskMessages(row) };
 }
 
+/**
+ * Cancelling pulls the task out of Discord as well as off the dashboard, and
+ * forgets the deliveries, so restoring it posts a fresh set rather than
+ * leaving orphaned messages behind.
+ */
 export async function setTaskStatus(
   taskId: string,
   status: "scheduled" | "cancelled",
 ) {
+  const removed =
+    status === "cancelled" ? await deleteTaskMessages(taskId) : null;
+
+  if (status === "cancelled") {
+    await db.delete(schema.taskPost).where(eq(schema.taskPost.taskId, taskId));
+  }
+
   await db
     .update(schema.task)
-    .set({ status, updatedAt: new Date() })
+    .set({
+      status,
+      publishedAt: status === "cancelled" ? null : undefined,
+      updatedAt: new Date(),
+    })
     .where(eq(schema.task.id, taskId));
+
+  return removed;
 }
 
+/**
+ * Row only. Call `deleteTaskMessages` first and stop if it reports failures —
+ * once this row is gone, so is the record of where those messages live.
+ */
 export async function deleteTask(taskId: string) {
   await db.delete(schema.task).where(eq(schema.task.id, taskId));
+}
+
+/** Every delivery of a task that actually made it to Discord. */
+function deliveredPosts(taskId: string) {
+  return db
+    .select({
+      id: schema.taskPost.id,
+      channelId: schema.taskPost.discordChannelId,
+      messageId: schema.taskPost.discordMessageId,
+      studentRoleId: schema.instructor.discordStudentRoleId,
+    })
+    .from(schema.taskPost)
+    .innerJoin(
+      schema.instructor,
+      eq(schema.taskPost.instructorId, schema.instructor.id),
+    )
+    .where(
+      and(
+        eq(schema.taskPost.taskId, taskId),
+        isNotNull(schema.taskPost.postedAt),
+        isNotNull(schema.taskPost.discordMessageId),
+      ),
+    );
+}
+
+export type DiscordSyncSummary = { changed: number; failed: number };
+
+export async function editTaskMessages(task: {
+  id: string;
+  title: string;
+  body: string;
+  startsAt: Date;
+  dueAt: Date;
+}): Promise<DiscordSyncSummary> {
+  const posts = await deliveredPosts(task.id);
+  let changed = 0;
+  let failed = 0;
+
+  for (const post of posts) {
+    if (!post.channelId || !post.messageId) continue;
+    try {
+      await editMessage(
+        post.channelId,
+        post.messageId,
+        buildTaskMessage(task, post.studentRoleId),
+        post.studentRoleId ? [post.studentRoleId] : [],
+      );
+      changed++;
+      await db
+        .update(schema.taskPost)
+        .set({ error: null, updatedAt: new Date() })
+        .where(eq(schema.taskPost.id, post.id));
+    } catch (error) {
+      failed++;
+      await db
+        .update(schema.taskPost)
+        .set({ error: reasonOf(error), updatedAt: new Date() })
+        .where(eq(schema.taskPost.id, post.id));
+    }
+  }
+
+  return { changed, failed };
+}
+
+export async function deleteTaskMessages(
+  taskId: string,
+): Promise<DiscordSyncSummary> {
+  const posts = await deliveredPosts(taskId);
+  let changed = 0;
+  let failed = 0;
+
+  for (const post of posts) {
+    if (!post.channelId || !post.messageId) continue;
+    try {
+      await deleteMessage(post.channelId, post.messageId);
+      changed++;
+    } catch (error) {
+      failed++;
+      await db
+        .update(schema.taskPost)
+        .set({ error: reasonOf(error), updatedAt: new Date() })
+        .where(eq(schema.taskPost.id, post.id));
+    }
+  }
+
+  return { changed, failed };
+}
+
+function reasonOf(error: unknown) {
+  return error instanceof Error ? error.message.slice(0, 500) : "Unknown error";
 }
 
 /** Move the start to now so the next publish run picks the task up. */
