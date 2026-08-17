@@ -47,8 +47,6 @@ async function counts() {
     [roster],
     [claimed],
     [instructors],
-    [assignments],
-    [pending],
     [runningTasks],
     [scheduledTasks],
   ] = await Promise.all([
@@ -59,8 +57,6 @@ async function counts() {
       .from(schema.importedStudent)
       .where(isNotNull(schema.importedStudent.claimedByUserId)),
     db.select({ n: count() }).from(schema.instructor),
-    db.select({ n: count() }).from(schema.studentAssignment),
-    db.select({ n: count() }).from(schema.pendingAssignment),
     db
       .select({ n: count() })
       .from(schema.task)
@@ -82,8 +78,6 @@ async function counts() {
     roster: roster.n,
     claimed: claimed.n,
     instructors: instructors.n,
-    assignments: assignments.n,
-    pending: pending.n,
     runningTasks: runningTasks.n,
     scheduledTasks: scheduledTasks.n,
   };
@@ -103,7 +97,7 @@ export default async function AdminPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Accounts" value={stats.users} />
         <StatCard
           label="Imported students"
@@ -111,11 +105,6 @@ export default async function AdminPage() {
           hint={`${stats.claimed} verified`}
         />
         <StatCard label="Instructors" value={stats.instructors} />
-        <StatCard
-          label="Assignments"
-          value={stats.assignments}
-          hint={`${stats.pending} awaiting verification`}
-        />
         <StatCard
           label="Running tasks"
           value={stats.runningTasks}
