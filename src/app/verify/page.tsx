@@ -32,7 +32,14 @@ export default async function VerifyPage() {
     >
       {/* Branding rail. Hidden on small screens, where the form is the only
           thing worth the space. */}
-      <aside className="brand-glow grain blueprint relative isolate hidden flex-col justify-between overflow-hidden p-12 lg:flex xl:p-16">
+      <aside className="brand-glow grain relative isolate hidden flex-col justify-between overflow-hidden p-12 lg:flex xl:p-16">
+        {/* The grid lives on its own layer: `.blueprint` carries a mask-image,
+            which would otherwise fade out this rail's text along with it. */}
+        <div
+          aria-hidden
+          className="blueprint pointer-events-none absolute inset-0 -z-10"
+        />
+
         <div>
           <p className="text-brand-gradient font-heading text-2xl font-bold tracking-tight">
             Durbar
