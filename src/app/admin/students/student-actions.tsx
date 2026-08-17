@@ -1,6 +1,9 @@
 "use client";
 
-import { revokeVerificationAction } from "@/app/admin/students/actions";
+import {
+  deleteStudentAction,
+  revokeVerificationAction,
+} from "@/app/admin/students/actions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,6 +61,70 @@ export function RevokeVerificationButton({
               className="bg-destructive text-white hover:opacity-90"
             >
               Un-verify
+            </AlertDialogAction>
+          </form>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+/**
+ * Removes the imported row. Disabled while somebody holds it, because the
+ * action refuses that case anyway — showing why up front beats a red toast
+ * after the click.
+ */
+export function DeleteStudentButton({
+  id,
+  email,
+  claimed,
+}: {
+  id: string;
+  email: string;
+  claimed: boolean;
+}) {
+  const [formAction, pending] = useToastedAction(deleteStudentAction);
+
+  if (claimed) {
+    return (
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled
+        title="Somebody has verified with this email. Un-verify them first."
+      >
+        Delete
+      </Button>
+    );
+  }
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant="ghost" className="text-destructive">
+          Delete
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {email}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            They leave the student list, so this email can no longer be
+            verified with — anyone trying is told they are not enrolled. Any
+            assignment parked against it goes too. Importing a sheet that still
+            contains this email brings it straight back.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Keep</AlertDialogCancel>
+          <form action={formAction}>
+            <input type="hidden" name="id" value={id} />
+            <AlertDialogAction
+              type="submit"
+              disabled={pending}
+              className="bg-destructive text-white hover:opacity-90"
+            >
+              Delete
             </AlertDialogAction>
           </form>
         </AlertDialogFooter>

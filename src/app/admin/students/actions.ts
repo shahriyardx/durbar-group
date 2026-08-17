@@ -210,3 +210,60 @@ export async function revokeVerificationAction(
     } dropped${result.removedFromGuild ? ", and they were removed from the Discord server" : ""}.`,
   };
 }
+
+/**
+ * Remove an imported student. Refused while the row is claimed: deleting it
+ * would leave a verified account whose proof of enrolment no longer exists,
+ * and re-importing that email later would hand it to whoever claims it first
+ * while the original account still holds it as its course email. Un-verify
+ * releases the row, and then it can go.
+ */
+export async function deleteStudentAction(
+  _prev: SimpleState,
+  formData: FormData,
+): Promise<SimpleState> {
+  await requireRole("admin");
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { status: "error", message: "Missing student." };
+
+  const [row] = await db
+    .select({
+      email: schema.importedStudent.email,
+      claimedByUserId: schema.importedStudent.claimedByUserId,
+    })
+    .from(schema.importedStudent)
+    .where(eq(schema.importedStudent.id, id))
+    .limit(1);
+
+  if (!row) return { status: "error", message: "That student is already gone." };
+  if (row.claimedByUserId) {
+    return {
+      status: "error",
+      message:
+        "Somebody has verified with this email. Un-verify them first, then delete.",
+    };
+  }
+
+  // Assignments parked against the email have nothing left to attach to.
+  const pending = await db
+    .delete(schema.pendingAssignment)
+    .where(eq(schema.pendingAssignment.courseEmail, row.email))
+    .returning({ id: schema.pendingAssignment.id });
+
+  await db
+    .delete(schema.importedStudent)
+    .where(eq(schema.importedStudent.id, id));
+
+  revalidatePath("/admin/students");
+  revalidatePath("/admin");
+  revalidatePath("/admin/instructors", "layout");
+
+  return {
+    status: "success",
+    message: pending.length
+      ? `${row.email} deleted, along with ${pending.length} pending assignment${
+          pending.length === 1 ? "" : "s"
+        }.`
+      : `${row.email} deleted.`,
+  };
+}

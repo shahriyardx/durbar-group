@@ -3,7 +3,10 @@ import Link from "next/link";
 
 import { AddStudentForm } from "@/app/admin/students/add-student-form";
 import { ImportForm } from "@/app/admin/students/import-form";
-import { RevokeVerificationButton } from "@/app/admin/students/student-actions";
+import {
+  DeleteStudentButton,
+  RevokeVerificationButton,
+} from "@/app/admin/students/student-actions";
 import { StatCard } from "@/components/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -313,18 +316,21 @@ export default async function AdminStudentsPage({
                           <Badge variant="outline">Not verified</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
-                        {row.claimedByUserId ? (
-                          <RevokeVerificationButton
-                            studentUserId={row.claimedByUserId}
-                            studentName={row.claimedName ?? row.email}
-                            courseEmail={row.email}
+                      <TableCell>
+                        <div className="flex flex-wrap justify-end gap-1">
+                          {row.claimedByUserId ? (
+                            <RevokeVerificationButton
+                              studentUserId={row.claimedByUserId}
+                              studentName={row.claimedName ?? row.email}
+                              courseEmail={row.email}
+                            />
+                          ) : null}
+                          <DeleteStudentButton
+                            id={row.id}
+                            email={row.email}
+                            claimed={Boolean(row.claimedByUserId)}
                           />
-                        ) : (
-                          <span className="text-muted-foreground text-xs">
-                            —
-                          </span>
-                        )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
