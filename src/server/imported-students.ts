@@ -1,6 +1,16 @@
 import "server-only";
 
-import { and, asc, eq, ilike, isNotNull, isNull, or, type SQL } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  type SQL,
+} from "drizzle-orm";
 
 import { db, schema } from "@/db";
 
@@ -43,6 +53,43 @@ export function importedStudentFilter(status: VerificationStatus, q: string) {
   }
 
   return clauses.length > 0 ? and(...clauses) : undefined;
+}
+
+export type AssignedInstructor = { id: string; displayName: string };
+
+/**
+ * Instructors each of these accounts is assigned to, keyed by user id. Only
+ * a claimed account can have any, so callers pass the claimed ids.
+ */
+export async function instructorsForUsers(userIds: string[]) {
+  const byUser = new Map<string, AssignedInstructor[]>();
+  if (userIds.length === 0) return byUser;
+
+  for (let i = 0; i < userIds.length; i += 500) {
+    const rows = await db
+      .select({
+        userId: schema.studentAssignment.studentUserId,
+        id: schema.instructor.id,
+        displayName: schema.instructor.displayName,
+      })
+      .from(schema.studentAssignment)
+      .innerJoin(
+        schema.instructor,
+        eq(schema.studentAssignment.instructorId, schema.instructor.id),
+      )
+      .where(
+        inArray(schema.studentAssignment.studentUserId, userIds.slice(i, i + 500)),
+      )
+      .orderBy(asc(schema.instructor.displayName));
+
+    for (const row of rows) {
+      const list = byUser.get(row.userId) ?? [];
+      list.push({ id: row.id, displayName: row.displayName });
+      byUser.set(row.userId, list);
+    }
+  }
+
+  return byUser;
 }
 
 export type ImportedStudentRow = {
@@ -91,30 +138,13 @@ export async function listImportedStudents(
     .map((row) => row.claimedByUserId)
     .filter((id): id is string => Boolean(id));
 
-  const byUser = new Map<string, string[]>();
-  if (claimedIds.length > 0) {
-    const assignments = await db
-      .select({
-        userId: schema.studentAssignment.studentUserId,
-        instructorName: schema.instructor.displayName,
-      })
-      .from(schema.studentAssignment)
-      .innerJoin(
-        schema.instructor,
-        eq(schema.studentAssignment.instructorId, schema.instructor.id),
-      )
-      .orderBy(asc(schema.instructor.displayName));
-
-    for (const row of assignments) {
-      const list = byUser.get(row.userId) ?? [];
-      list.push(row.instructorName);
-      byUser.set(row.userId, list);
-    }
-  }
+  const byUser = await instructorsForUsers(claimedIds);
 
   return rows.map(({ claimedByUserId, ...row }) => ({
     ...row,
     verified: Boolean(claimedByUserId),
-    instructors: claimedByUserId ? (byUser.get(claimedByUserId) ?? []) : [],
+    instructors: claimedByUserId
+      ? (byUser.get(claimedByUserId) ?? []).map((i) => i.displayName)
+      : [],
   }));
 }

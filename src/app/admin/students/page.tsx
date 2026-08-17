@@ -29,7 +29,9 @@ import { requireRole } from "@/lib/rbac";
 import { cn } from "@/lib/utils";
 import {
   importedStudentFilter,
+  instructorsForUsers,
   isVerificationStatus,
+  type AssignedInstructor,
   type VerificationStatus,
 } from "@/server/imported-students";
 
@@ -46,6 +48,41 @@ const STATUS_TITLE: Record<VerificationStatus, string> = {
   verified: "Verified students",
   unverified: "Not verified yet",
 };
+
+/**
+ * A student can sit with more than one instructor, so this renders a list.
+ * "Not assigned" and "Not verified" are different states worth telling apart:
+ * only a verified student is waiting on an admin to assign them.
+ */
+function InstructorLinks({
+  instructors,
+  verified,
+}: {
+  instructors: AssignedInstructor[];
+  verified: boolean;
+}) {
+  if (instructors.length === 0) {
+    return (
+      <span className="text-muted-foreground text-xs">
+        {verified ? "Not assigned" : "—"}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap gap-x-2 gap-y-1">
+      {instructors.map((instructor) => (
+        <Link
+          key={instructor.id}
+          href={`/admin/instructors/${instructor.id}`}
+          className="hover:text-foreground text-sm underline underline-offset-2"
+        >
+          {instructor.displayName}
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 export default async function AdminStudentsPage({
   searchParams,
@@ -92,6 +129,11 @@ export default async function AdminStudentsPage({
       .from(schema.importedStudent)
       .where(isNotNull(schema.importedStudent.claimedByUserId)),
   ]);
+
+  // Only claimed rows can carry an assignment, and only this page's worth.
+  const instructorsByUser = await instructorsForUsers(
+    rows.map((row) => row.claimedByUserId).filter((id): id is string => !!id),
+  );
 
   const pageCount = Math.max(1, Math.ceil(totals.n / PAGE_SIZE));
   const href = (next: Partial<{ status: string; q: string; page: number }>) => {
@@ -215,6 +257,7 @@ export default async function AdminStudentsPage({
                     <TableHead>Name</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Other columns</TableHead>
+                    <TableHead>Instructor</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -234,6 +277,17 @@ export default async function AdminStudentsPage({
                         title={summariseOthers(row.others)}
                       >
                         {summariseOthers(row.others)}
+                      </TableCell>
+                      <TableCell>
+                        <InstructorLinks
+                          instructors={
+                            row.claimedByUserId
+                              ? (instructorsByUser.get(row.claimedByUserId) ??
+                                [])
+                              : []
+                          }
+                          verified={Boolean(row.claimedByUserId)}
+                        />
                       </TableCell>
                       <TableCell>
                         {row.claimedByUserId ? (
