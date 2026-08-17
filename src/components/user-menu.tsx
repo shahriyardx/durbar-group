@@ -47,7 +47,11 @@ export function UserMenu({
         <DropdownMenuItem
           onSelect={async () => {
             await signOut();
-            router.replace("/login");
+            // There is no login page — the landing page is where you sign in.
+            router.replace("/");
+            // The shell above renders from the session on the server, so the
+            // cached payload has to go with it.
+            router.refresh();
           }}
         >
           {signOutLabel}
