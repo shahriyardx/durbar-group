@@ -79,8 +79,7 @@ export default async function VerifyPage() {
         </div>
 
         <p className="font-bangla text-muted-foreground/70 text-xs leading-loose">
-          ভেরিফাই করলেই ডিসকর্ড সার্ভারে যুক্ত হয়ে যাবে — আলাদা ইনভাইট লিংক
-          লাগবে না।
+          একবার ঢুকে পড়লে বাকিটা টিমের সঙ্গে — একা লেগে থাকতে হবে না।
         </p>
       </aside>
 
