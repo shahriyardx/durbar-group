@@ -124,7 +124,21 @@ export function TransferButton({
   const [target, setTarget] = useState("");
 
   const options = instructors.filter((i) => i.id !== fromInstructorId);
-  if (options.length === 0) return null;
+
+  // Shown disabled rather than hidden: an action that silently is not there
+  // reads as a missing feature, not as "there is nowhere to move them".
+  if (options.length === 0) {
+    return (
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled
+        title="There is no other instructor to move them to yet."
+      >
+        Transfer
+      </Button>
+    );
+  }
 
   return (
     <Dialog>
