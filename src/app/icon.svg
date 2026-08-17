@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Durbar">
+  <title>Durbar</title>
+  <defs>
+    <linearGradient id="durbar" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8758ff"/>
+      <stop offset="1" stop-color="#e855de"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#durbar)"/>
+  <!-- The D leans forward: দুর্বার means unstoppable, and the slant is the
+       only nod to that which survives being 16 pixels wide. -->
+  <path d="M19 14h13c11 0 18 7.2 18 18s-7 18-18 18H19V14zm10 9v18h3c6 0 9.5-3.4 9.5-9s-3.5-9-9.5-9h-3z"
+        fill="#0d0518" transform="skewX(-9) translate(5 0)"/>
+</svg>

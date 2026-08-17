@@ -8,6 +8,7 @@ import {
 import "./globals.css";
 
 import { Toaster } from "@/components/ui/sonner";
+import { env } from "@/lib/env";
 
 // Bricolage carries the display voice, Manrope keeps body copy quiet,
 // JetBrains Mono stamps the spec-sheet labels, Hind Siliguri renders বাংলা.
@@ -36,10 +37,48 @@ const bangla = Hind_Siliguri({
   display: "swap",
 });
 
+// The landing page is Bengali and so is everyone who will see a shared link,
+// so the preview card speaks Bengali. `icon.svg`, `apple-icon.png`,
+// `opengraph-image.png` and `twitter-image.png` sit beside this file and Next
+// wires them in by convention — there is no `icons` or `images` field here on
+// purpose, since naming them twice is how they drift.
+const DESCRIPTION =
+  "প্রোগ্রামিং হিরো ব্যাচের ভেতরে একটি আলাদা, ছোট আর শক্ত টিম। নিজের ইন্সট্রাক্টর, নিয়মিত টাস্ক, আর নিজের ডিসকর্ড চ্যানেল — যারা সত্যিই লেগে থাকতে চায় তাদের জন্য।";
+
 export const metadata: Metadata = {
-  title: "Durbar Group — Programming Hero",
-  description:
-    "An optional elite track inside the Programming Hero bootcamp for students training to become AI-Powered Web Engineers.",
+  // Resolved per request, so the same image works on every deployment.
+  metadataBase: new URL(env.BETTER_AUTH_URL),
+  title: {
+    default: "দুর্বার গ্রুপ — Durbar Group | Programming Hero",
+    template: "%s · দুর্বার গ্রুপ",
+  },
+  description: DESCRIPTION,
+  applicationName: "Durbar",
+  keywords: [
+    "দুর্বার গ্রুপ",
+    "Durbar Group",
+    "Programming Hero",
+    "প্রোগ্রামিং হিরো",
+    "AI-Powered Web Engineer",
+    "ওয়েব ডেভেলপমেন্ট কোর্স",
+  ],
+  authors: [{ name: "Programming Hero" }],
+  creator: "Programming Hero",
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    locale: "bn_BD",
+    url: "/",
+    siteName: "দুর্বার গ্রুপ",
+    title: "দুর্বার গ্রুপ — যারা সত্যিই লেগে থাকতে চায়",
+    description: DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "দুর্বার গ্রুপ — যারা সত্যিই লেগে থাকতে চায়",
+    description: DESCRIPTION,
+  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
