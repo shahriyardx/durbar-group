@@ -57,16 +57,27 @@ export function PublishNowButton({ taskId }: { taskId: string }) {
 export function RunPublisherButton({
   taskId,
   label = "Run publisher",
+  className,
+  size = "sm",
 }: {
   taskId?: string;
   label?: string;
+  /** Set when it sits beside a primary button and has to match its shape. */
+  className?: string;
+  size?: "sm" | "default";
 }) {
   const [formAction, pending] = useToastedAction(retryTaskAction);
 
   return (
     <form action={formAction} className="inline">
       {taskId ? <input type="hidden" name="taskId" value={taskId} /> : null}
-      <Button type="submit" size="sm" variant="outline" disabled={pending}>
+      <Button
+        type="submit"
+        size={size}
+        variant="outline"
+        disabled={pending}
+        className={className}
+      >
         {pending ? "Posting…" : label}
       </Button>
     </form>

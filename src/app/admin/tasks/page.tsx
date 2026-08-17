@@ -57,7 +57,11 @@ export default async function AdminTasksPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <RunPublisherButton label="Post anything due" />
+          <RunPublisherButton
+            label="Post anything due"
+            size="default"
+            className="h-10 rounded-full px-6"
+          />
           <Button
             asChild
             className="bg-brand-gradient h-10 rounded-full px-6 text-white hover:opacity-90"

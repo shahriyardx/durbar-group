@@ -184,7 +184,6 @@ type RunningTask = {
   id: string;
   title: string;
   body: string;
-  startsAt: Date;
   dueAt: Date;
 };
 
@@ -230,8 +229,7 @@ function RunningTasks({ tasks }: { tasks: RunningTask[] }) {
               </div>
               <DiscordMarkdown markdown={task.body} className="px-8" />
               <p className="font-bangla text-muted-foreground border-border/60 mt-6 border-t px-8 py-4 text-xs">
-                শুরু {formatDateTimeBn(task.startsAt)} · ডেডলাইন{" "}
-                {formatDateTimeBn(task.dueAt)}
+                ডেডলাইন {formatDateTimeBn(task.dueAt)}
               </p>
             </li>
           ))}

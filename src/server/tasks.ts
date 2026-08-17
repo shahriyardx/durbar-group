@@ -307,7 +307,6 @@ export async function getRunningTasks() {
       id: schema.task.id,
       title: schema.task.title,
       body: schema.task.body,
-      startsAt: schema.task.startsAt,
       dueAt: schema.task.dueAt,
     })
     .from(schema.task)
