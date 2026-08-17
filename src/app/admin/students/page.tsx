@@ -1,6 +1,7 @@
 import { count, desc, isNotNull, sql } from "drizzle-orm";
 import Link from "next/link";
 
+import { AddStudentForm } from "@/app/admin/students/add-student-form";
 import { ImportForm } from "@/app/admin/students/import-form";
 import { RevokeVerificationButton } from "@/app/admin/students/student-actions";
 import { StatCard } from "@/components/stat-card";
@@ -163,18 +164,32 @@ export default async function AdminStudentsPage({
         <StatCard label="Not verified" value={grand.n - claimedRow.n} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Import from Excel</CardTitle>
-          <CardDescription>
-            Re-uploading is safe: rows are matched on email, existing entries
-            are updated, and a blank cell never wipes existing data.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ImportForm />
-        </CardContent>
-      </Card>
+      <div className="grid items-start gap-4 xl:grid-cols-[1.6fr_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Import from Excel</CardTitle>
+            <CardDescription>
+              Re-uploading is safe: rows are matched on email, existing entries
+              are updated, and a blank cell never wipes existing data.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ImportForm />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Add one student</CardTitle>
+            <CardDescription>
+              For the late enrolment that never made it into a sheet.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AddStudentForm />
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>

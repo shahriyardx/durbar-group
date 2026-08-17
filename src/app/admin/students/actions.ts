@@ -2,6 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { db, schema } from "@/db";
 import { hasRole, requireRole } from "@/lib/rbac";
@@ -48,6 +49,65 @@ export async function importRosterAction(
     created: summary.created,
     updated: summary.updated,
     skipped: parsed.skipped,
+  };
+}
+
+export type AddStudentState = {
+  status: "idle" | "error" | "success";
+  message?: string;
+  fieldErrors?: Record<string, string>;
+};
+
+const addStudentSchema = z.object({
+  email: z.email("That is not a valid email address."),
+  name: z.string().trim().max(200).optional(),
+  phone: z.string().trim().max(60).optional(),
+});
+
+/**
+ * Add one student without a spreadsheet. It goes through `importRoster` rather
+ * than its own insert, so a hand-typed row gets exactly the same treatment as
+ * an imported one: lowercased email, upsert on conflict, and a blank field
+ * that never wipes what is already stored.
+ */
+export async function addStudentAction(
+  _prev: AddStudentState,
+  formData: FormData,
+): Promise<AddStudentState> {
+  const admin = await requireRole("admin");
+
+  const parsed = addStudentSchema.safeParse({
+    email: String(formData.get("email") ?? "").trim().toLowerCase(),
+    name: String(formData.get("name") ?? "").trim() || undefined,
+    phone: String(formData.get("phone") ?? "").trim() || undefined,
+  });
+
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const key = String(issue.path[0] ?? "form");
+      fieldErrors[key] ??= issue.message;
+    }
+    return {
+      status: "error",
+      message: "Fix the highlighted fields.",
+      fieldErrors,
+    };
+  }
+
+  const summary = await importRoster(
+    [parsed.data],
+    admin.id,
+    "Added by hand",
+  );
+  revalidatePath("/admin/students");
+  revalidatePath("/admin");
+
+  return {
+    status: "success",
+    message: summary.updated
+      ? `${parsed.data.email} was already in the list — updated it.`
+      : `${parsed.data.email} added.`,
   };
 }
 
