@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { DiscordSignIn } from "@/components/discord-sign-in";
+import { Button } from "@/components/ui/button";
 
 const LINKS = [
   { href: "#mission", label: "মিশন" },
@@ -9,7 +10,7 @@ const LINKS = [
   { href: "#notes", label: "গুরুত্বপূর্ণ" },
 ];
 
-export function LandingNav() {
+export function LandingNav({ signedIn }: { signedIn: boolean }) {
   return (
     <header className="border-border/50 bg-background/70 sticky top-0 z-30 border-b backdrop-blur-xl">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-8 px-6">
@@ -35,10 +36,19 @@ export function LandingNav() {
         </nav>
 
         <div className="ml-auto">
-          <DiscordSignIn
-            label="জয়েন করো"
-            className="font-bangla h-9 rounded-full px-5"
-          />
+          {signedIn ? (
+            <Button
+              asChild
+              className="bg-brand-gradient font-bangla h-9 rounded-full px-5 text-white hover:opacity-90"
+            >
+              <Link href="/dashboard">ড্যাশবোর্ড</Link>
+            </Button>
+          ) : (
+            <DiscordSignIn
+              label="জয়েন করো"
+              className="font-bangla h-9 rounded-full px-5"
+            />
+          )}
         </div>
       </div>
     </header>

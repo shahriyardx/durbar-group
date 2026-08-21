@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { signInWithDiscord } from "@/lib/auth-client";
 
 export function DiscordSignIn({
-  callbackURL = "/",
+  callbackURL = "/dashboard",
   label = "Continue with Discord",
   className,
   size = "lg",

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { VerifyForm } from "@/app/verify/verify-form";
@@ -41,9 +42,12 @@ export default async function VerifyPage() {
         />
 
         <div>
-          <p className="text-brand-gradient font-heading text-2xl font-bold tracking-tight">
+          <Link
+            href="/"
+            className="text-brand-gradient font-heading text-2xl font-bold tracking-tight"
+          >
             Durbar
-          </p>
+          </Link>
           <p className="font-bangla text-muted-foreground mt-2 text-sm">
             দুর্বার গ্রুপ · প্রোগ্রামিং হিরো
           </p>
@@ -85,9 +89,12 @@ export default async function VerifyPage() {
 
       <section className="border-border/60 flex items-center justify-center p-6 lg:border-l xl:p-12">
         <div className="w-full max-w-md">
-          <p className="text-brand-gradient font-heading mb-8 text-xl font-bold tracking-tight lg:hidden">
+          <Link
+            href="/"
+            className="text-brand-gradient font-heading mb-8 block text-xl font-bold tracking-tight lg:hidden"
+          >
             Durbar
-          </p>
+          </Link>
 
           <p className="font-bangla text-muted-foreground font-mono text-xs">
             ধাপ ২ / ২

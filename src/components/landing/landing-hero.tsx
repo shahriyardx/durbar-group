@@ -1,4 +1,7 @@
+import Link from "next/link";
+
 import { DiscordSignIn } from "@/components/discord-sign-in";
+import { Button } from "@/components/ui/button";
 import { CTA_CLASS, PillLink } from "@/components/landing/primitives";
 
 const SPECS = [
@@ -17,7 +20,7 @@ const MARQUEE = [
   "English Masterclass",
 ];
 
-export function LandingHero() {
+export function LandingHero({ signedIn }: { signedIn: boolean }) {
   return (
     <section className="grain relative isolate overflow-hidden">
       <div className="brand-glow absolute inset-0 -z-20" />
@@ -67,10 +70,19 @@ export function LandingHero() {
           className="reveal mt-10 flex flex-wrap items-center gap-4"
           style={{ "--d": "270ms" } as React.CSSProperties}
         >
-          <DiscordSignIn
-            label="জয়েন করো"
-            className={`${CTA_CLASS} font-bangla`}
-          />
+          {signedIn ? (
+            <Button
+              asChild
+              className={`${CTA_CLASS} bg-brand-gradient font-bangla text-white hover:opacity-90`}
+            >
+              <Link href="/dashboard">ড্যাশবোর্ডে যাও</Link>
+            </Button>
+          ) : (
+            <DiscordSignIn
+              label="জয়েন করো"
+              className={`${CTA_CLASS} font-bangla`}
+            />
+          )}
           <PillLink
             href="#criteria"
             className="font-bangla text-sm tracking-normal normal-case"

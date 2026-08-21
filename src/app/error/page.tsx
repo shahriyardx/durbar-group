@@ -128,7 +128,7 @@ export default async function ErrorPage({ searchParams }: PageProps<"/error">) {
           <DiscordSignIn
             label="Retry sign-in"
             className={CTA_CLASS}
-            callbackURL="/"
+            callbackURL="/dashboard"
           />
           <PillLink href="/">Back to home</PillLink>
         </div>

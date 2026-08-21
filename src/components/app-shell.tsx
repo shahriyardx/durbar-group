@@ -51,8 +51,10 @@ export async function AppShell({
     <div className="flex min-h-full flex-1 flex-col">
       <header className="border-border/60 bg-background/80 sticky top-0 z-10 border-b backdrop-blur">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-6 px-6">
+          {/* The way back to the public page from any dashboard. */}
           <Link
             href="/"
+            title="দুর্বার গ্রুপ — হোমপেজ"
             className="text-brand-gradient font-heading text-lg font-bold tracking-tight"
           >
             Durbar

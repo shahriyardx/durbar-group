@@ -11,7 +11,7 @@ export const authClient = createAuthClient({
 
 export const { signIn, signOut, useSession } = authClient;
 
-export function signInWithDiscord(callbackURL = "/") {
+export function signInWithDiscord(callbackURL = "/dashboard") {
   return authClient.signIn.social({
     provider: "discord",
     callbackURL,
