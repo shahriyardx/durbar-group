@@ -3,7 +3,11 @@ import "server-only";
 import { eq, inArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { getDiscordAccessToken, getDiscordUserId } from "@/lib/discord/account";
+import {
+  getDiscordAccessToken,
+  getDiscordUserId,
+  inspectAccessToken,
+} from "@/lib/discord/account";
 import {
   addGuildMember,
   addRoleToMember,
@@ -20,11 +24,25 @@ export const SYNC_FAILURE_BN: Record<
     "তোমার ডিসকর্ড অ্যাকাউন্টের সঙ্গে সংযোগ পাওয়া যায়নি। সাইন আউট করে আবার ডিসকর্ড দিয়ে লগইন করো।",
   "no-access-token":
     "ডিসকর্ড লগইনের মেয়াদ শেষ হয়ে গেছে, তাই তোমাকে সার্ভারে যুক্ত করা যায়নি। সাইন আউট করে আবার ডিসকর্ড দিয়ে লগইন করো, তারপর আবার চেষ্টা করো।",
+  "token-expired":
+    "ডিসকর্ড লগইনের মেয়াদ শেষ হয়ে গেছে। সাইন আউট করে আবার ডিসকর্ড দিয়ে লগইন করো, তারপর আবার চেষ্টা করো।",
+  "missing-join-scope":
+    "ডিসকর্ড সার্ভারে যুক্ত করার অনুমতি পাওয়া যায়নি। সাইন আউট করে আবার লগইন করো এবং ডিসকর্ডের অনুমতির স্ক্রিনে Authorize চাপো।",
+  "token-user-mismatch":
+    "তোমার ডিসকর্ড অ্যাকাউন্টের সঙ্গে মিল পাওয়া যায়নি। সাইন আউট করে আবার ডিসকর্ড দিয়ে লগইন করো।",
 };
 
 export type SyncResult =
   | { ok: true; joinedGuild: boolean; rolesApplied: number }
-  | { ok: false; reason: "no-discord-account" | "no-access-token" };
+  | {
+      ok: false;
+      reason:
+        | "no-discord-account"
+        | "no-access-token"
+        | "token-expired"
+        | "missing-join-scope"
+        | "token-user-mismatch";
+    };
 
 /**
  * The Discord half of a sync, with the roles handed in rather than looked up.
@@ -47,6 +65,28 @@ export async function applyDiscordAccess(
     // Joining requires the user's own OAuth token (guilds.join scope).
     const accessToken = await getDiscordAccessToken(userId);
     if (!accessToken) return { ok: false, reason: "no-access-token" };
+
+    // Discord answers a token it cannot resolve with "Unknown User" against
+    // the *student's* id, which sends anyone debugging in the wrong
+    // direction. Ask what the token is first, and fail with the real reason.
+    const info = await inspectAccessToken(accessToken);
+    if (!info.ok) {
+      console.error(`[discord] access token rejected for user=${userId}`);
+      return { ok: false, reason: "token-expired" };
+    }
+    if (!info.scopes.includes("guilds.join")) {
+      console.error(
+        `[discord] token for user=${userId} lacks guilds.join — scopes: ${info.scopes.join(", ") || "(none)"}`,
+      );
+      return { ok: false, reason: "missing-join-scope" };
+    }
+    if (info.userId && info.userId !== discordUserId) {
+      console.error(
+        `[discord] token belongs to ${info.userId} but the account says ${discordUserId} (user=${userId})`,
+      );
+      return { ok: false, reason: "token-user-mismatch" };
+    }
+
     await addGuildMember(discordUserId, accessToken, roleIds);
   } else {
     // PUT /members on an existing member is a no-op for roles, so grant
