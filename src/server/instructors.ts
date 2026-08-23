@@ -313,8 +313,11 @@ export async function assignStudentsByEmail(
         const email = accounts.find((a) => a.id === userId)?.courseEmail;
         if (email) summary.discordFailures.push(email);
       }
-    } catch {
+    } catch (error) {
       const email = accounts.find((a) => a.id === userId)?.courseEmail;
+      // The admin only sees the email in "Discord sync failed"; the reason is
+      // worth having somewhere.
+      console.error(`[assign] Discord sync failed for ${email ?? userId}:`, error);
       if (email) summary.discordFailures.push(email);
     }
   }

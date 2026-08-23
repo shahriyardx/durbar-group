@@ -4,6 +4,7 @@ import { eq, inArray, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { getDiscordUserId } from "@/lib/discord/account";
+import { DiscordApiError } from "@/lib/discord/rest";
 import { removeGuildMember } from "@/lib/discord/provision";
 import {
   applyDiscordAccess,
@@ -139,6 +140,16 @@ export async function claimCourseEmail(
 
     return { ok: true as const, assigned: assignments.length > 0 };
   }).catch((error) => {
+    // The student is shown something they can act on; the server keeps what
+    // actually happened. Without this the generic message below is all anyone
+    // ever sees, and a Discord 403 looks the same as a dead database.
+    console.error(
+      `[verify] claim failed for user=${userId} email=${email}:`,
+      error instanceof DiscordApiError
+        ? `Discord ${error.status} on ${error.path} — ${JSON.stringify(error.body)}`
+        : error,
+    );
+
     if (error instanceof DiscordJoinError) {
       return { ok: false as const, error: error.message };
     }
