@@ -1,5 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 
+import { RejoinCard } from "@/app/student/rejoin-card";
 import { Countdown } from "@/components/countdown";
 import { DiscordMarkdown } from "@/components/discord-markdown";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { CHANNEL_LAYOUT } from "@/lib/discord/provision";
 import { env } from "@/lib/env";
 import { countdownBn, formatDateTimeBn } from "@/lib/format";
 import { requireVerifiedStudent } from "@/lib/rbac";
+import { getGuildMembership } from "@/server/discord-sync";
 import { getRunningTasks } from "@/server/tasks";
 
 const CHANNEL_COPY: Record<
@@ -51,7 +53,7 @@ export default async function StudentPage() {
     .where(eq(schema.studentAssignment.studentUserId, user.id))
     .orderBy(asc(schema.studentAssignment.assignedAt));
 
-  const [channels, tasks] = await Promise.all([
+  const [channels, tasks, membership] = await Promise.all([
     rows.length
       ? db
           .select({
@@ -62,6 +64,9 @@ export default async function StudentPage() {
           .from(schema.instructorChannel)
       : [],
     getRunningTasks(),
+    // One Discord call per dashboard load, and it degrades to "unknown"
+    // rather than blocking the page or crying wolf during an outage.
+    getGuildMembership(user.id),
   ]);
 
   return (
@@ -77,6 +82,8 @@ export default async function StudentPage() {
           {user.courseEmail}
         </p>
       </header>
+
+      {membership === "absent" ? <RejoinCard /> : null}
 
       {rows.length === 0 ? <AwaitingAssignment /> : null}
 

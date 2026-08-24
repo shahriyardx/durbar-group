@@ -147,3 +147,22 @@ export async function revokeStudentDiscordAccess(
   if (!discordUserId) return;
   await removeRoleFromMember(discordUserId, studentRoleId);
 }
+
+export type Membership = "member" | "absent" | "unknown";
+
+/**
+ * Whether the student is currently in the guild.
+ *
+ * "unknown" when Discord cannot be reached: the student dashboard renders this
+ * on every load, and a Discord outage must not turn into a banner telling
+ * everybody they have been removed.
+ */
+export async function getGuildMembership(userId: string): Promise<Membership> {
+  try {
+    const discordUserId = await getDiscordUserId(userId);
+    if (!discordUserId) return "unknown";
+    return (await isGuildMember(discordUserId)) ? "member" : "absent";
+  } catch {
+    return "unknown";
+  }
+}
