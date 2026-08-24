@@ -57,6 +57,13 @@ export const auth = betterAuth({
       // guilds.join lets us drop a verified student straight into the server
       // with the bot token, no invite link round-trip.
       scope: ["identify", "email", "guilds.join"],
+      // better-auth sends prompt=none by default, and Discord reads that as
+      // "reuse the existing authorisation" — handing back a token with the
+      // scopes granted the *first* time. Anyone who signed in before
+      // guilds.join was asked for kept a token without it, and no amount of
+      // signing out fixed that, because there was never a second consent
+      // screen. This costs one click per sign-in and guarantees the scope.
+      prompt: "consent",
     },
   },
   user: {
