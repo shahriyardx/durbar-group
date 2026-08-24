@@ -277,3 +277,47 @@ async function ignoreMissing<T>(p: Promise<T>) {
     throw error;
   }
 }
+
+/**
+ * A single-use invite, as the failsafe for a student the bot could not add
+ * itself. Their own OAuth token is what `guilds.join` needs, so when that
+ * token is dead there is nothing the server can do — but the student can
+ * still walk in through a door we open for them.
+ *
+ * One use, one hour. Returns null rather than throwing: this runs on a path
+ * that is already reporting a failure, and a second failure there is noise.
+ */
+export async function createOneTimeInvite(): Promise<string | null> {
+  try {
+    const guild = await discordFetch<{ system_channel_id: string | null }>(
+      `/guilds/${guildId()}`,
+    );
+
+    let channelId = guild.system_channel_id;
+    if (!channelId) {
+      const channels = await discordFetch<DiscordChannel[]>(
+        `/guilds/${guildId()}/channels`,
+      );
+      channelId =
+        channels.find((c) => c.type === ChannelType.GUILD_TEXT && !c.parent_id)
+          ?.id ??
+        channels.find((c) => c.type === ChannelType.GUILD_TEXT)?.id ??
+        null;
+    }
+    if (!channelId) return null;
+
+    const invite = await discordFetch<{ code: string }>(
+      `/channels/${channelId}/invites`,
+      {
+        method: "POST",
+        body: { max_age: 3600, max_uses: 1, unique: true, temporary: false },
+        reason: "Fallback invite for a student Durbar could not add directly",
+      },
+    );
+
+    return `https://discord.gg/${invite.code}`;
+  } catch (error) {
+    console.error("[discord] could not mint a fallback invite:", error);
+    return null;
+  }
+}

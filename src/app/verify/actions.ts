@@ -13,6 +13,8 @@ const schema = z.object({
 export type VerifyState = {
   status: "idle" | "error" | "success";
   message?: string;
+  /** Offered when the join failed: a door the student can walk through. */
+  inviteUrl?: string;
 };
 
 export async function verifyCourseEmail(
@@ -29,7 +31,13 @@ export async function verifyCourseEmail(
   }
 
   const result = await claimCourseEmail(user.id, parsed.data.courseEmail);
-  if (!result.ok) return { status: "error", message: result.error };
+  if (!result.ok) {
+    return {
+      status: "error",
+      message: result.error,
+      ...(result.inviteUrl ? { inviteUrl: result.inviteUrl } : {}),
+    };
+  }
 
   revalidatePath("/", "layout");
   return {

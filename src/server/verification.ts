@@ -5,7 +5,10 @@ import { eq, inArray, isNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { getDiscordUserId } from "@/lib/discord/account";
 import { DiscordApiError } from "@/lib/discord/rest";
-import { removeGuildMember } from "@/lib/discord/provision";
+import {
+  createOneTimeInvite,
+  removeGuildMember,
+} from "@/lib/discord/provision";
 import {
   applyDiscordAccess,
   revokeStudentDiscordAccess,
@@ -14,7 +17,7 @@ import {
 
 export type ClaimResult =
   | { ok: true; assigned: boolean }
-  | { ok: false; error: string };
+  | { ok: false; error: string; inviteUrl?: string };
 
 /**
  * Thrown inside the claim transaction to roll it back. Verification is only
@@ -150,15 +153,24 @@ export async function claimCourseEmail(
         : error,
     );
 
-    if (error instanceof DiscordJoinError) {
-      return { ok: false as const, error: error.message };
-    }
     return {
       ok: false as const,
       error:
-        "ডিসকর্ড সার্ভারে যুক্ত করা যায়নি, তাই ভেরিফিকেশন সম্পূর্ণ হয়নি। একটু পরে আবার চেষ্টা করো — সমস্যা থাকলে অ্যাডমিনকে জানাও।",
+        error instanceof DiscordJoinError
+          ? error.message
+          : "ডিসকর্ড সার্ভারে যুক্ত করা যায়নি, তাই ভেরিফিকেশন সম্পূর্ণ হয়নি। একটু পরে আবার চেষ্টা করো — সমস্যা থাকলে অ্যাডমিনকে জানাও।",
+      needsInvite: true as const,
     };
   });
+
+  // Every way of failing above is a way of failing to reach Discord, so the
+  // student gets a door they can walk through themselves. Joining by hand
+  // makes the next attempt take the "already a member" branch, which never
+  // touches the OAuth token that just failed.
+  if (!outcome.ok && "needsInvite" in outcome) {
+    const inviteUrl = await createOneTimeInvite();
+    return { ok: false, error: outcome.error, ...(inviteUrl ? { inviteUrl } : {}) };
+  }
 
   return outcome;
 }

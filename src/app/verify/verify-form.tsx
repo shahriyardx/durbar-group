@@ -46,9 +46,32 @@ export function VerifyForm() {
       </div>
 
       {state.status === "error" ? (
-        <p className="font-bangla text-destructive text-sm leading-relaxed">
-          {state.message}
-        </p>
+        <div className="border-destructive/40 bg-destructive/5 space-y-3 rounded-xl border p-4">
+          <p className="font-bangla text-destructive text-sm leading-relaxed">
+            {state.message}
+          </p>
+
+          {/* Joining by hand sidesteps the OAuth token entirely: the next
+              attempt sees an existing member and skips the failing call. */}
+          {state.inviteUrl ? (
+            <div className="space-y-2">
+              <Button
+                asChild
+                variant="outline"
+                className="font-bangla h-10 w-full rounded-full"
+              >
+                <a href={state.inviteUrl} target="_blank" rel="noreferrer">
+                  ডিসকর্ড সার্ভারে জয়েন করো ↗
+                </a>
+              </Button>
+              <p className="font-bangla text-muted-foreground text-xs leading-loose">
+                লিংকটি একবারই কাজ করবে, এক ঘণ্টার মধ্যে। জয়েন করা হয়ে গেলে এই
+                পেজে ফিরে এসে আবার &ldquo;জয়েন করো&rdquo; চাপো — তখনই ভেরিফিকেশন
+                সম্পূর্ণ হবে।
+              </p>
+            </div>
+          ) : null}
+        </div>
       ) : null}
 
       <Button
