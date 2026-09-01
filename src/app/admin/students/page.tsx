@@ -355,8 +355,8 @@ export default async function AdminStudentsPage({
                           <Badge variant="outline">Not verified</Badge>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap justify-end gap-1">
+                      <TableCell className="whitespace-nowrap">
+                        <div className="flex justify-end gap-2">
                           {row.claimedByUserId ? (
                             row.eliminated ? (
                               <RestoreStudentButton

@@ -36,6 +36,13 @@ import { useToastedAction } from "@/hooks/use-toasted-action";
 import { CRITERIA_SHORT } from "@/lib/criteria";
 
 /**
+ * Destructive row actions read as buttons rather than as red text: they sit
+ * three-across in a table cell, and a bare label there looks like a link.
+ */
+const DESTRUCTIVE_OUTLINE =
+  "border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive";
+
+/**
  * Sends a student back to the verification form. Everything that depended on
  * the verification — assignments, Discord membership — goes with it.
  */
@@ -53,7 +60,7 @@ export function RevokeVerificationButton({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button size="sm" variant="ghost" className="text-destructive">
+        <Button size="sm" variant="outline" className={DESTRUCTIVE_OUTLINE}>
           Un-verify
         </Button>
       </AlertDialogTrigger>
@@ -106,7 +113,7 @@ export function DeleteStudentButton({
     return (
       <Button
         size="sm"
-        variant="ghost"
+        variant="outline"
         disabled
         title="Somebody has verified with this email. Un-verify them first."
       >
@@ -118,7 +125,7 @@ export function DeleteStudentButton({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button size="sm" variant="ghost" className="text-destructive">
+        <Button size="sm" variant="outline" className={DESTRUCTIVE_OUTLINE}>
           Delete
         </Button>
       </AlertDialogTrigger>
@@ -186,7 +193,7 @@ export function EliminateStudentButton({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="ghost" className="text-destructive">
+        <Button size="sm" variant="outline" className={DESTRUCTIVE_OUTLINE}>
           Eliminate
         </Button>
       </DialogTrigger>
