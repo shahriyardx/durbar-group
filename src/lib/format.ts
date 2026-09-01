@@ -81,3 +81,33 @@ export function toLocalInputValue(value: Date | null | undefined) {
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
 }
+
+/** A <input type="date"> value read as a Bangladesh-time day, at midnight. */
+export function parseLocalDateValue(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00${ZONE_OFFSET}`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function toLocalDateInputValue(value: Date | null | undefined) {
+  return value ? toLocalInputValue(value).slice(0, 10) : "";
+}
+
+const EN_DATE = new Intl.DateTimeFormat("en-GB", {
+  dateStyle: "medium",
+  timeZone: ZONE,
+});
+
+const BN_DATE = new Intl.DateTimeFormat("bn-BD", {
+  dateStyle: "long",
+  timeZone: ZONE,
+});
+
+/** Day only — for outline rows, where the time of day carries no meaning. */
+export function formatDate(value: Date | null | undefined) {
+  return value ? EN_DATE.format(value) : "—";
+}
+
+export function formatDateBn(value: Date | null | undefined) {
+  return value ? BN_DATE.format(value) : "—";
+}

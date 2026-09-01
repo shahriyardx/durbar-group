@@ -8,6 +8,13 @@
       "when": 1786648478207,
       "tag": "0000_slim_mole_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788263554559,
+      "tag": "0001_misty_thunderbolts",
+      "breakpoints": true
     }
   ]
 }

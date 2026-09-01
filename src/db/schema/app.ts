@@ -195,9 +195,37 @@ export const taskPost = pgTable(
   ],
 );
 
+/**
+ * The course outline: what happens when. One row per milestone — a class, a
+ * module, an assignment window — ordered by the day it opens.
+ *
+ * Unlike `task` this never touches Discord. It is the plan students read on
+ * their dashboard, not an announcement, so editing one is a plain row update.
+ */
+export const outlineItem = pgTable(
+  "outline_item",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    // Midnight Bangladesh time on the day this opens. Required: an outline
+    // entry with no date says nothing about when anything happens.
+    releasedAt: timestamp("released_at").notNull(),
+    // Optional, and a full timestamp when present — plenty of outline rows
+    // (a session, a module opening) have no deadline at all.
+    dueAt: timestamp("due_at"),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("outline_item_released_at_idx").on(t.releasedAt)],
+);
+
 export type ImportedStudent = typeof importedStudent.$inferSelect;
 export type Instructor = typeof instructor.$inferSelect;
 export type ChannelKey = (typeof channelKey.enumValues)[number];
 export type Task = typeof task.$inferSelect;
 export type TaskPost = typeof taskPost.$inferSelect;
 export type TaskStatus = (typeof taskStatus.enumValues)[number];
+export type OutlineItem = typeof outlineItem.$inferSelect;
