@@ -210,6 +210,9 @@ const IMPORTED_BASE = [
   "Discord email",
   "Verified at",
   "Instructor",
+  "Eliminated",
+  "Elimination reason",
+  "Eliminated at",
   "Imported at",
 ];
 
@@ -223,6 +226,9 @@ function importedRow(student: ImportedStudentRow, keys: string[]) {
     student.discordEmail ?? "",
     date(student.verifiedAt),
     student.instructors.join(", "),
+    student.eliminated ? "Yes" : "No",
+    student.eliminationReason ?? "",
+    date(student.eliminatedAt),
     date(student.importedAt),
     ...otherValues(student, keys),
   ];
@@ -269,12 +275,20 @@ export async function buildImportedWorkbook(
   const unverified = students.filter((s) => !s.verified);
 
   if (status !== "unverified") addSheet("Verified", verified);
-  if (status !== "verified") addSheet("Not verified", unverified);
+  // Everyone in the eliminated slice is verified by definition, so the second
+  // sheet would always be empty there.
+  if (status !== "verified" && status !== "eliminated") {
+    addSheet("Not verified", unverified);
+  }
 
   const summary = workbook.addWorksheet("Summary");
   summary.addRow(["Students in this export", students.length]);
   summary.addRow(["Verified", verified.length]);
   summary.addRow(["Not verified", unverified.length]);
+  summary.addRow([
+    "Eliminated",
+    students.filter((s) => s.eliminated).length,
+  ]);
   summary.getColumn(1).width = 26;
   summary.getColumn(1).font = { bold: true };
 

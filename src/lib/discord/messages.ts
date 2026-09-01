@@ -62,3 +62,43 @@ export async function deleteMessage(
     throw error;
   }
 }
+
+/**
+ * Send a direct message to one user.
+ *
+ * Two calls: open (or reuse) the DM channel, then post into it. Discord gives
+ * back the same channel every time, so this is safe to call repeatedly.
+ *
+ * It fails for reasons that are the recipient's choice, not our bug — DMs
+ * from server members turned off, the bot blocked, no shared server any more
+ * — so it reports rather than throws. Anything that depends on the DM landing
+ * has to treat it as best-effort.
+ */
+export async function sendDirectMessage(
+  discordUserId: string,
+  content: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const channel = await discordFetch<{ id: string }>("/users/@me/channels", {
+      method: "POST",
+      body: { recipient_id: discordUserId },
+    });
+
+    await discordFetch(`/channels/${channel.id}/messages`, {
+      method: "POST",
+      // Nothing in this message should ever ping anybody.
+      body: { content, allowed_mentions: { parse: [] } },
+    });
+
+    return { ok: true };
+  } catch (error) {
+    const reason =
+      error instanceof DiscordApiError
+        ? `Discord ${error.status} on ${error.path} — ${JSON.stringify(error.body)}`
+        : error instanceof Error
+          ? error.message
+          : "Unknown error";
+    console.error(`[dm] could not reach ${discordUserId}: ${reason}`);
+    return { ok: false, error: reason };
+  }
+}

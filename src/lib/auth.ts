@@ -83,6 +83,15 @@ export const auth = betterAuth({
         required: false,
         input: false,
       },
+      // Carried on the session user so every guard can bounce an eliminated
+      // student without a second query. The reason is not: only the page
+      // that shows it needs that, and it is a paragraph of Bengali prose.
+      eliminated: {
+        type: "boolean",
+        defaultValue: false,
+        required: false,
+        input: false,
+      },
     },
   },
   session: {

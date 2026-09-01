@@ -1,4 +1,11 @@
-import { boolean, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  type AnyPgColumn,
+} from "drizzle-orm/pg-core";
 
 /**
  * Roles are hierarchical: super_admin > admin > instructor > student.
@@ -28,6 +35,20 @@ export const user = pgTable("user", {
   studentVerified: boolean("student_verified").default(false).notNull(),
   verifiedAt: timestamp("verified_at"),
   banned: boolean("banned").default(false).notNull(),
+  /**
+   * Eliminated from the Durbar Group for failing the criteria. Distinct from
+   * `banned`: the account and every trace of it stay on the admin screens on
+   * purpose — an elimination is a record, not a deletion. What it costs them
+   * is Discord, the dashboard and the ability to get back in.
+   */
+  eliminated: boolean("eliminated").default(false).notNull(),
+  // Shown to the student verbatim when they try to sign in, so it is written
+  // for them to read, not as an internal note.
+  eliminationReason: text("elimination_reason"),
+  eliminatedAt: timestamp("eliminated_at"),
+  eliminatedBy: text("eliminated_by").references((): AnyPgColumn => user.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

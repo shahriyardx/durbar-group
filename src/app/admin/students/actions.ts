@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { db, schema } from "@/db";
 import { hasRole, requireRole } from "@/lib/rbac";
+import { eliminateStudent, restoreStudent } from "@/server/elimination";
 import { importRoster, parseRosterFile } from "@/server/roster";
 import { revokeVerification } from "@/server/verification";
 
@@ -265,5 +266,91 @@ export async function deleteStudentAction(
           pending.length === 1 ? "" : "s"
         }.`
       : `${row.email} deleted.`,
+  };
+}
+
+const eliminationReasonSchema = z
+  .string()
+  .trim()
+  .min(10, "Write a reason the student can actually read.")
+  .max(1000, "Keep the reason under 1000 characters.");
+
+/**
+ * Eliminate a student from the Durbar Group.
+ *
+ * Guarded the same way un-verify is: an instructor or admin account is not a
+ * student, and eliminating one would lock somebody out of their own teaching
+ * space. Demote them first if that is really the intent.
+ */
+export async function eliminateStudentAction(
+  _prev: SimpleState,
+  formData: FormData,
+): Promise<SimpleState> {
+  const admin = await requireRole("admin");
+  const studentUserId = String(formData.get("studentUserId") ?? "");
+  if (!studentUserId) return { status: "error", message: "Missing student." };
+
+  const reason = eliminationReasonSchema.safeParse(formData.get("reason") ?? "");
+  if (!reason.success) {
+    return { status: "error", message: reason.error.issues[0].message };
+  }
+
+  const target = await getUserForRevoke(studentUserId);
+  if (!target) return { status: "error", message: "That account is gone." };
+  if (target.blocked) {
+    return {
+      status: "error",
+      message:
+        "That account is an instructor or admin — demote them or remove their teaching space first.",
+    };
+  }
+
+  const result = await eliminateStudent(studentUserId, reason.data, admin.id);
+  if (!result) return { status: "error", message: "That account is gone." };
+
+  revalidatePath("/admin", "layout");
+  revalidatePath("/student");
+
+  if (result.discordError) {
+    return {
+      status: "error",
+      message: `${result.name} eliminated and signed out, but the Discord removal failed: ${result.discordError}`,
+    };
+  }
+  return {
+    status: "success",
+    message: `${result.name} eliminated${
+      result.notified ? ", told why by DM" : ""
+    }${result.removedFromGuild ? ", removed from Discord" : ""}, and ${
+      result.sessionsKilled
+    } session${result.sessionsKilled === 1 ? "" : "s"} ended.${
+      result.notified
+        ? ""
+        : " The DM did not go through — they have DMs from server members turned off, so the reason is only on their sign-in screen."
+    }`,
+  };
+}
+
+/**
+ * Put an elimination back. Discord access is not restored here — the rejoin
+ * button on their own dashboard does that with their own OAuth token.
+ */
+export async function restoreStudentAction(
+  _prev: SimpleState,
+  formData: FormData,
+): Promise<SimpleState> {
+  await requireRole("admin");
+  const studentUserId = String(formData.get("studentUserId") ?? "");
+  if (!studentUserId) return { status: "error", message: "Missing student." };
+
+  const row = await restoreStudent(studentUserId);
+  if (!row) return { status: "error", message: "That account is gone." };
+
+  revalidatePath("/admin", "layout");
+  revalidatePath("/student");
+
+  return {
+    status: "success",
+    message: `${row.name} is back in the group. They can sign in again, and the rejoin button on their dashboard puts them back into Discord.`,
   };
 }

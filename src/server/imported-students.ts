@@ -14,13 +14,18 @@ import {
 
 import { db, schema } from "@/db";
 
-/** Which half of the imported list an admin is looking at. */
-export type VerificationStatus = "all" | "verified" | "unverified";
+/** Which slice of the imported list an admin is looking at. */
+export type VerificationStatus =
+  | "all"
+  | "verified"
+  | "unverified"
+  | "eliminated";
 
 export const VERIFICATION_STATUSES: VerificationStatus[] = [
   "all",
   "verified",
   "unverified",
+  "eliminated",
 ];
 
 export function isVerificationStatus(
@@ -32,6 +37,10 @@ export function isVerificationStatus(
 /**
  * "Verified" means a signed-in account proved ownership of this course email,
  * which is exactly what `claimed_by_user_id` records.
+ *
+ * The "eliminated" slice reads a column on `user`, so every query that uses
+ * this filter has to join `user` — which each of them already does to show
+ * the account behind a claimed row.
  */
 export function importedStudentFilter(status: VerificationStatus, q: string) {
   const clauses: (SQL | undefined)[] = [];
@@ -40,6 +49,8 @@ export function importedStudentFilter(status: VerificationStatus, q: string) {
     clauses.push(isNotNull(schema.importedStudent.claimedByUserId));
   } else if (status === "unverified") {
     clauses.push(isNull(schema.importedStudent.claimedByUserId));
+  } else if (status === "eliminated") {
+    clauses.push(eq(schema.user.eliminated, true));
   }
 
   if (q) {
@@ -103,6 +114,9 @@ export type ImportedStudentRow = {
   discordEmail: string | null;
   verifiedAt: Date | null;
   instructors: string[];
+  eliminated: boolean;
+  eliminationReason: string | null;
+  eliminatedAt: Date | null;
 };
 
 /**
@@ -125,6 +139,9 @@ export async function listImportedStudents(
       accountName: schema.user.name,
       discordEmail: schema.user.email,
       verifiedAt: schema.user.verifiedAt,
+      eliminated: schema.user.eliminated,
+      eliminationReason: schema.user.eliminationReason,
+      eliminatedAt: schema.user.eliminatedAt,
     })
     .from(schema.importedStudent)
     .leftJoin(
@@ -142,6 +159,9 @@ export async function listImportedStudents(
 
   return rows.map(({ claimedByUserId, ...row }) => ({
     ...row,
+    // A row nobody has claimed leaves the join null, and an unclaimed roster
+    // entry cannot have been eliminated.
+    eliminated: row.eliminated ?? false,
     verified: Boolean(claimedByUserId),
     instructors: claimedByUserId
       ? (byUser.get(claimedByUserId) ?? []).map((i) => i.displayName)

@@ -1,10 +1,12 @@
-import { count, desc, isNotNull, sql } from "drizzle-orm";
+import { count, desc, eq, isNotNull, sql } from "drizzle-orm";
 import Link from "next/link";
 
 import { AddStudentForm } from "@/app/admin/students/add-student-form";
 import { ImportForm } from "@/app/admin/students/import-form";
 import {
   DeleteStudentButton,
+  EliminateStudentButton,
+  RestoreStudentButton,
   RevokeVerificationButton,
 } from "@/app/admin/students/student-actions";
 import { StatCard } from "@/components/stat-card";
@@ -45,12 +47,14 @@ const STATUS_TABS: { value: VerificationStatus; label: string }[] = [
   { value: "all", label: "All" },
   { value: "verified", label: "Verified" },
   { value: "unverified", label: "Not verified" },
+  { value: "eliminated", label: "Eliminated" },
 ];
 
 const STATUS_TITLE: Record<VerificationStatus, string> = {
   all: "All students",
   verified: "Verified students",
   unverified: "Not verified yet",
+  eliminated: "Eliminated from the group",
 };
 
 /**
@@ -103,7 +107,8 @@ export default async function AdminStudentsPage({
 
   const filter = importedStudentFilter(status, q);
 
-  const [rows, [totals], [grand], [claimedRow]] = await Promise.all([
+  const [rows, [totals], [grand], [claimedRow], [eliminatedRow]] =
+    await Promise.all([
     db
       .select({
         id: schema.importedStudent.id,
@@ -114,6 +119,8 @@ export default async function AdminStudentsPage({
         importedAt: schema.importedStudent.importedAt,
         claimedByUserId: schema.importedStudent.claimedByUserId,
         claimedName: schema.user.name,
+        eliminated: schema.user.eliminated,
+        eliminationReason: schema.user.eliminationReason,
       })
       .from(schema.importedStudent)
       .leftJoin(
@@ -124,7 +131,16 @@ export default async function AdminStudentsPage({
       .orderBy(desc(schema.importedStudent.importedAt))
       .limit(PAGE_SIZE)
       .offset((page - 1) * PAGE_SIZE),
-    db.select({ n: count() }).from(schema.importedStudent).where(filter),
+    // The join is not decoration: the "eliminated" filter reads user.eliminated,
+    // so counting without it would be a missing-FROM-clause error.
+    db
+      .select({ n: count() })
+      .from(schema.importedStudent)
+      .leftJoin(
+        schema.user,
+        sql`${schema.user.id} = ${schema.importedStudent.claimedByUserId}`,
+      )
+      .where(filter),
     // Unfiltered, so the cards keep describing the whole cohort while the
     // table below is narrowed to a tab.
     db.select({ n: count() }).from(schema.importedStudent),
@@ -132,6 +148,14 @@ export default async function AdminStudentsPage({
       .select({ n: count() })
       .from(schema.importedStudent)
       .where(isNotNull(schema.importedStudent.claimedByUserId)),
+    db
+      .select({ n: count() })
+      .from(schema.importedStudent)
+      .innerJoin(
+        schema.user,
+        sql`${schema.user.id} = ${schema.importedStudent.claimedByUserId}`,
+      )
+      .where(eq(schema.user.eliminated, true)),
   ]);
 
   // Only claimed rows can carry an assignment, and only this page's worth.
@@ -161,10 +185,15 @@ export default async function AdminStudentsPage({
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Imported students" value={grand.n} />
         <StatCard label="Verified" value={claimedRow.n} />
         <StatCard label="Not verified" value={grand.n - claimedRow.n} />
+        <StatCard
+          label="Eliminated"
+          value={eliminatedRow.n}
+          hint={eliminatedRow.n ? "locked out of Discord and the app" : undefined}
+        />
       </div>
 
       <div className="grid items-start gap-4 xl:grid-cols-[1.6fr_1fr]">
@@ -264,7 +293,9 @@ export default async function AdminStudentsPage({
                   ? "Nobody has verified yet."
                   : status === "unverified"
                     ? "Everybody imported has verified."
-                    : "No students imported yet."}
+                    : status === "eliminated"
+                      ? "Nobody has been eliminated."
+                      : "No students imported yet."}
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -308,7 +339,15 @@ export default async function AdminStudentsPage({
                         />
                       </TableCell>
                       <TableCell>
-                        {row.claimedByUserId ? (
+                        {row.eliminated ? (
+                          <Badge
+                            variant="outline"
+                            className="border-destructive/50 text-destructive"
+                            title={row.eliminationReason ?? undefined}
+                          >
+                            Eliminated · {row.claimedName}
+                          </Badge>
+                        ) : row.claimedByUserId ? (
                           <Badge variant="secondary">
                             Verified · {row.claimedName}
                           </Badge>
@@ -319,11 +358,24 @@ export default async function AdminStudentsPage({
                       <TableCell>
                         <div className="flex flex-wrap justify-end gap-1">
                           {row.claimedByUserId ? (
-                            <RevokeVerificationButton
-                              studentUserId={row.claimedByUserId}
-                              studentName={row.claimedName ?? row.email}
-                              courseEmail={row.email}
-                            />
+                            row.eliminated ? (
+                              <RestoreStudentButton
+                                studentUserId={row.claimedByUserId}
+                                studentName={row.claimedName ?? row.email}
+                              />
+                            ) : (
+                              <>
+                                <EliminateStudentButton
+                                  studentUserId={row.claimedByUserId}
+                                  studentName={row.claimedName ?? row.email}
+                                />
+                                <RevokeVerificationButton
+                                  studentUserId={row.claimedByUserId}
+                                  studentName={row.claimedName ?? row.email}
+                                  courseEmail={row.email}
+                                />
+                              </>
+                            )
                           ) : null}
                           <DeleteStudentButton
                             id={row.id}

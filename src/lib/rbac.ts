@@ -32,6 +32,9 @@ export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/");
   if (user.banned) redirect("/error?error=account_banned");
+  // Elimination outlives the session it was applied in: the sessions are
+  // deleted the moment it happens, and signing back in lands here again.
+  if (user.eliminated) redirect("/eliminated");
   return user;
 }
 

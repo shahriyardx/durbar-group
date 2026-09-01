@@ -2,6 +2,7 @@ import { asc, eq } from "drizzle-orm";
 
 import { RejoinCard } from "@/app/student/rejoin-card";
 import { Countdown } from "@/components/countdown";
+import { CriteriaList } from "@/components/criteria-list";
 import { DiscordMarkdown } from "@/components/discord-markdown";
 import { Button } from "@/components/ui/button";
 import { db, schema } from "@/db";
@@ -187,6 +188,8 @@ export default async function StudentPage() {
       <RunningTasks tasks={tasks} />
 
       <CourseOutline items={outline} />
+
+      <CriteriaList />
     </div>
   );
 }
